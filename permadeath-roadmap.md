@@ -123,12 +123,16 @@
 ## Sixth iteration
 - [x] HUD behaviour change:
     - [x] Instead of making the health blink with red when low health, change it so that the red tint goes for a looping fade animation by using a formula for the red's opacity, like `mod($time, 1.0)` (it's a formula I use for Material Maker on the Opacity of a blend node (where 0.0 is the background color, 1.0 is the red color we're talking about), translate it for this scenario), and activate it only when health is 60 or under (instead of the current 25 or lower), and make it go faster the lower it gets (minimum animation speed `mod($time*0.5, 1.0)`, and maximum animation speed `mod($time*5, 1.0)`).
+    - [x] Have the armor numbers go white if value is >100 (just like health).
+    - [x] Have the ammo numbers go white if value is higher than the starting ammo (aka the amount of ammo gotten from when the weapon is picked up).
+    - [x] Verify whether the damage absorption changes depending on the armor that was picked up (red or yellow)
+        - N/A: `ARMOR_PROTECTION = 0.66` is a single global constant; the game only tracks armor count (`STAT_ARMOR`), not pickup type. Red and yellow armor absorb damage identically — no swap needed.
 
 ## Seventh iteration
 - [ ] Rework Achievements screen with the following layout (similar to the final Skirmish screen) using this mockup I put together (bricolaged from screenshots): `/permadeath_src/Originals/Permadeath-screen-2.png`
 
 
-## Eigth iteration
+## Eighth iteration
 - [ ] Special game over screen occurs after changing the fraglimit via console, then winning the last match of the campaign: 
     1. A fake 'victory sequence' (it's probably called the intermission) begins, where the winner is teleported first place and executes the taunt.
     2. When the taunt begins, the player explodes after 1 second (an automatic `/kill` occurs) during the victory/defeat screen and the win.wav music stops playing immediately. Three seconds after, disconnect automatically and show the Game Over Screen with a different message:

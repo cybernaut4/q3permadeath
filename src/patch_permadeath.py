@@ -1,6 +1,6 @@
 """
 patch_permadeath.py  -  applies all source changes for the Q3A permadeath mod.
-Usage:  python patch_permadeath.py <path_to_ioq3_source_root>
+Usage:  python patch_permadeath.py <path_to_ioq3_source_root> [version]
 
 Architecture:
   - qagame: intercepts SP death, respawn attempt, and map_restart-after-death.
@@ -46,7 +46,7 @@ def patch_literal(path, find, replacement, label):
 def already(path, marker):
     return marker in read(path)
 
-def run(ioq3):
+def run(ioq3, PD_VERSION='dev'):
     def p(rel):
         return os.path.join(ioq3, rel.replace('/', os.sep))
 
@@ -368,6 +368,51 @@ def run(ioq3):
                        '\t\ttrap_R_SetColor( colors[1] );\t// red\n'
                        '\t}'),
                       'cg_draw.c: replace health blink with sawtooth fade (threshold 60)')
+
+    # -------------------------------------------------------------------------
+    # cg_draw.c: armor goes white when > 100 (mirrors health > 100 behavior).
+    # -------------------------------------------------------------------------
+    if already(f, 'pd_armor_white'):
+        print('  [SKIP] cg_draw.c (armor white >100) already patched')
+    else:
+        patch_literal(f,
+                      '\tvalue = ps->stats[STAT_ARMOR];\n'
+                      '\tif (value > 0 ) {\n'
+                      '\t\ttrap_R_SetColor( colors[0] );\n'
+                      '\t\tCG_DrawField (370, 432, 3, value);',
+                      ('\tvalue = ps->stats[STAT_ARMOR];\n'
+                       '\tif (value > 0 ) {\n'
+                       '\t\ttrap_R_SetColor( value > 100 ? colors[3] : colors[0] ); /* pd_armor_white */\n'
+                       '\t\tCG_DrawField (370, 432, 3, value);'),
+                      'cg_draw.c: armor white when >100')
+
+    # -------------------------------------------------------------------------
+    # cg_draw.c: ammo goes white when above the weapon's pickup quantity.
+    # Table indexed by WP_* (0-10): {none,gauntlet,mg,sg,gl,rl,lg,rail,pg,bfg,hook}
+    # -------------------------------------------------------------------------
+    if already(f, 'pd_startAmmo'):
+        print('  [SKIP] cg_draw.c (ammo white >pickup) already patched')
+    else:
+        patch_literal(f,
+                      '\t\t\t} else {\n'
+                      '\t\t\t\tif ( value >= 0 ) {\n'
+                      '\t\t\t\t\tcolor = 0;\t// green\n'
+                      '\t\t\t\t} else {\n'
+                      '\t\t\t\t\tcolor = 1;\t// red\n'
+                      '\t\t\t\t}\n'
+                      '\t\t\t}',
+                      ('\t\t\t} else {\n'
+                       '\t\t\t\tif ( value >= 0 ) {\n'
+                       '\t\t\t\t\t{\n'
+                       '\t\t\t\t\t\tstatic const int pd_startAmmo[11] = {0,0,40,10,10,10,100,10,50,20,0};\n'
+                       '\t\t\t\t\t\tint _wp = cent->currentState.weapon;\n'
+                       '\t\t\t\t\t\tcolor = (_wp >= 0 && _wp < 11 && value > pd_startAmmo[_wp]) ? 3 : 0;\n'
+                       '\t\t\t\t\t}\n'
+                       '\t\t\t\t} else {\n'
+                       '\t\t\t\t\tcolor = 1;\t// red\n'
+                       '\t\t\t\t}\n'
+                       '\t\t\t}'),
+                      'cg_draw.c: ammo white when above weapon pickup quantity')
 
     # -------------------------------------------------------------------------
     # cg_event.c: suppress intro_XX sounds (except intro_01/intro_10) once the
@@ -836,7 +881,7 @@ def run(ioq3):
     # menu has loaded completely.
     # -------------------------------------------------------------------------
     f = p('code/q3_ui/ui_atoms.c')
-    if already(f, 'Permadeath v0.'):
+    if already(f, '^1Permadeath'):
         print('  [SKIP] ui_atoms.c (version print) already patched')
     else:
         patch_literal(f,
@@ -845,19 +890,30 @@ def run(ioq3):
                       '}',
                       ('\tuis.activemenu = NULL;\n'
                        '\tuis.menusp     = 0;\n'
-                       '\ttrap_Print( "^1Permadeath v0.5^7\\n" );\n'
+                       '\ttrap_Print( "^1Permadeath v' + PD_VERSION + '^7\\n" );\n'
                        '}'),
                       'ui_atoms.c: print version on startup')
+
+    # -------------------------------------------------------------------------
+    # ui_pd_stats.c: stamp PD_VERSION with the build version (always applied;
+    # the source file uses "dev" as a placeholder).
+    # -------------------------------------------------------------------------
+    f = p('code/q3_ui/ui_pd_stats.c')
+    patch_re(f,
+             r'#define\s+PD_VERSION\s+"[^"]*"',
+             '#define PD_VERSION "' + PD_VERSION + '"',
+             'ui_pd_stats.c: set PD_VERSION to ' + PD_VERSION)
 
     print('\nAll patches applied successfully.')
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
-        print('Usage: python ' + sys.argv[0] + ' <path_to_ioq3_source_root>')
+    if len(sys.argv) < 2:
+        print('Usage: python ' + sys.argv[0] + ' <path_to_ioq3_source_root> [version]')
         sys.exit(1)
     root = sys.argv[1]
+    version = sys.argv[2] if len(sys.argv) >= 3 else 'dev'
     if not os.path.isdir(root):
         print('ERROR: Directory not found: ' + root)
         sys.exit(1)
-    run(root)
+    run(root, version)

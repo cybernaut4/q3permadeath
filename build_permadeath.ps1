@@ -6,7 +6,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$VERSION  = "0.5"
+$VERSION  = "0.6"
 
 $MODDIR   = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Q3DIR    = Split-Path -Parent $MODDIR
@@ -104,7 +104,7 @@ OK "New files copied."
 # 5. Apply source patches (Python handles regex/encoding cleanly)
 # ---------------------------------------------------------------------------
 Info "Applying source patches..."
-& $PYTHON "$SRCDIR\patch_permadeath.py" $IOQ3DIR
+& $PYTHON "$SRCDIR\patch_permadeath.py" $IOQ3DIR $VERSION
 if ($LASTEXITCODE -ne 0) { Fail "Patching failed - see output above." }
 OK "Patches applied."
 
@@ -189,8 +189,6 @@ Add-Type -Assembly System.IO.Compression
 Add-Type -Assembly System.IO.Compression.FileSystem
 $zip = [System.IO.Compression.ZipFile]::Open($pk3Path,
     [System.IO.Compression.ZipArchiveMode]::Create)
-[System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
-    $zip, $descFile, "description.txt") | Out-Null
 
 $achSrc = "$SRCDIR\menu\achievements"
 if (Test-Path $achSrc) {

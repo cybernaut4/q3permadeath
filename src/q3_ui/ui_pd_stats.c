@@ -44,7 +44,7 @@
 #define PDS_BACK_X      0
 #define PDS_BACK_Y      (480 - 64)
 
-#define PD_VERSION      "0.5"
+#define PD_VERSION      "dev"
 
 /* Menu item IDs */
 #define ID_PDS_BACK     10
