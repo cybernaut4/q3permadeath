@@ -43,6 +43,24 @@ qboolean CG_PD_IsHudSuppressed( void ) {
 void CG_PermadeathGameOver_KeyDown( int key ) {}
 void CG_PermadeathGameOver_MouseMove( int dx, int dy ) {}
 
+/* Fills out[] with the health-warning color: a sawtooth lerp from the normal
+   golden color (at opacity 0) to red (at opacity 1).  Speed scales linearly
+   with how low health is: 0.5 cycles/s at health=60, 5 cycles/s at health=1. */
+void CG_PD_HealthWarningColor( int health, vec4_t out ) {
+    float t, speed, alpha;
+    int   period_ms, phase_ms;
+    t         = (60.0f - (float)health) / 60.0f;           /* 0 at h=60, 1 at h=0 */
+    speed     = 0.5f + 4.5f * t;                           /* 0.5 .. 5.0 cycles/s */
+    period_ms = (int)(1000.0f / speed);
+    if ( period_ms < 1 ) period_ms = 1;
+    phase_ms  = cg.time % period_ms;
+    alpha     = (float)phase_ms / (float)period_ms;        /* 0..1 sawtooth */
+    out[0]    = 1.00f + (0.00f) * alpha;                   /* R: 1.0 -> 1.0  */
+    out[1]    = 0.69f + (-0.49f) * alpha;                  /* G: 0.69 -> 0.20 */
+    out[2]    = 0.00f + (0.20f) * alpha;                   /* B: 0.0 -> 0.20 */
+    out[3]    = 1.0f;
+}
+
 /* Called every render frame from CG_DrawActive.
    Stops background music immediately when the player dies in SP permadeath,
    so the music doesn't keep playing during the "press to confirm death" wait. */

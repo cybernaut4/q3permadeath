@@ -121,8 +121,8 @@
     - [x] Inside Permadeath menu, put a text right below its title, use default monospace font, same red color and size as the bottom text in the main menu. Version must be written like so: "Version 0.5"
 
 ## Sixth iteration
-- [ ] HUD behaviour change:
-    - [ ] Instead of making the health blink when low health, make it so that the number is the same light-brown, but the red tint fades using a formula for its alpha, like `mod($time, 1.0)` (it's a formula I use for Material Maker on the Opacity of a blend node, translate it for this scenario), but activate it only when health is 60 or under, and make it go faster the lower it gets (maximum animation speed `mod($time*5, 1.0)`).
+- [x] HUD behaviour change:
+    - [x] Instead of making the health blink with red when low health, change it so that the red tint goes for a looping fade animation by using a formula for the red's opacity, like `mod($time, 1.0)` (it's a formula I use for Material Maker on the Opacity of a blend node (where 0.0 is the background color, 1.0 is the red color we're talking about), translate it for this scenario), and activate it only when health is 60 or under (instead of the current 25 or lower), and make it go faster the lower it gets (minimum animation speed `mod($time*0.5, 1.0)`, and maximum animation speed `mod($time*5, 1.0)`).
 
 ## Seventh iteration
 - [ ] Rework Achievements screen with the following layout (similar to the final Skirmish screen) using this mockup I put together (bricolaged from screenshots): `/permadeath_src/Originals/Permadeath-screen-2.png`

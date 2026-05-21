@@ -323,6 +323,53 @@ def run(ioq3):
                  'cg_local.h: declare CG_PD_IsHudSuppressed')
 
     # -------------------------------------------------------------------------
+    # cg_local.h 5/5: declare CG_PD_HealthWarningColor.
+    # -------------------------------------------------------------------------
+    if already(f, 'CG_PD_HealthWarningColor'):
+        print('  [SKIP] cg_local.h (CG_PD_HealthWarningColor) already patched')
+    else:
+        patch_re(f,
+                 r'(qboolean\s+CG_PD_IsHudSuppressed\s*\(\s*void\s*\)\s*;)',
+                 '\\1\nvoid CG_PD_HealthWarningColor( int health, vec4_t out );',
+                 'cg_local.h: declare CG_PD_HealthWarningColor')
+
+    # -------------------------------------------------------------------------
+    # cg_draw.c: replace the health-number color block.
+    # Threshold changes from 25 to 60; blinking replaced with sawtooth fade.
+    # -------------------------------------------------------------------------
+    f = p('code/cgame/cg_draw.c')
+    if already(f, 'CG_PD_HealthWarningColor'):
+        print('  [SKIP] cg_draw.c (health warning color) already patched')
+    else:
+        patch_literal(f,
+                      '\tvalue = ps->stats[STAT_HEALTH];\n'
+                      '\tif ( value > 100 ) {\n'
+                      '\t\ttrap_R_SetColor( colors[3] );\t\t// white\n'
+                      '\t} else if (value > 25) {\n'
+                      '\t\ttrap_R_SetColor( colors[0] );\t// green\n'
+                      '\t} else if (value > 0) {\n'
+                      '\t\tcolor = (cg.time >> 8) & 1;\t// flash\n'
+                      '\t\ttrap_R_SetColor( colors[color] );\n'
+                      '\t} else {\n'
+                      '\t\ttrap_R_SetColor( colors[1] );\t// red\n'
+                      '\t}',
+                      ('\tvalue = ps->stats[STAT_HEALTH];\n'
+                       '\tif ( value > 100 ) {\n'
+                       '\t\ttrap_R_SetColor( colors[3] );\t\t// white\n'
+                       '\t} else if (value > 60) {\n'
+                       '\t\ttrap_R_SetColor( colors[0] );\t// normal\n'
+                       '\t} else if (value > 0) {\n'
+                       '\t\t{\n'
+                       '\t\t\tvec4_t wc;\n'
+                       '\t\t\tCG_PD_HealthWarningColor( value, wc );\n'
+                       '\t\t\ttrap_R_SetColor( wc );\n'
+                       '\t\t}\n'
+                       '\t} else {\n'
+                       '\t\ttrap_R_SetColor( colors[1] );\t// red\n'
+                       '\t}'),
+                      'cg_draw.c: replace health blink with sawtooth fade (threshold 60)')
+
+    # -------------------------------------------------------------------------
     # cg_event.c: suppress intro_XX sounds (except intro_01/intro_10) once the
     # DEAD achievement has been earned (pd_achievements bit 0 set).
     # -------------------------------------------------------------------------

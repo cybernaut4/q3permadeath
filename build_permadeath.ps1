@@ -203,6 +203,17 @@ if (Test-Path $achSrc) {
     Info "No achievement TGAs found at $achSrc, skipping."
 }
 
+$artSrc = "$SRCDIR\menu\art"
+if (Test-Path $artSrc) {
+    foreach ($tga in (Get-ChildItem "$artSrc\*.tga")) {
+        [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+            $zip, $tga.FullName, "menu/art/$($tga.Name)") | Out-Null
+        OK "  Packed $($tga.Name)"
+    }
+} else {
+    Info "No art TGAs found at $artSrc, skipping."
+}
+
 $zip.Dispose()
 OK "permadeath.pk3 created."
 
