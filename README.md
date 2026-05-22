@@ -12,7 +12,7 @@ Adds the possibility to lose all progress in the campaign, for those bragging ab
     * **Ammo** and **armor** are white if their values are higher than normal.
 * There's Permadeath, and ***True* Permadeath** in case you believe that having extra lives is unfaithful to the concept of permadeath (accessible through `Setup -> Game Options -> True Permadeath`).
 * **Auto-record**: to record demos automatically through single player (ON by default: `Setup -> Game Options -> Auto-record`)
-* New medal: Haste. Beat the map faster than normal. Can be risky, unless you know what you're doing ;)
+* New medal: Haste. Beat the map faster than normal. Can be risky, unless you know what you're doing 😉
 
 
 ---
@@ -24,7 +24,15 @@ Adds the possibility to lose all progress in the campaign, for those bragging ab
 ## Installation
 
 1. Create a new subdirectory called "permadeath" in your game directory.
-2. You need only the `permadeath.pk3`, `cgame.dll`, `cgamex86_64.dll`, `qagame.dll`, `qagamex86_64.dll`, `ui.dll`, `uix86_64.dll` and `description.txt` inside the "permadeath" subfolder to run
+2. You need only these files inside `<game directory>/permadeath`:
+    * `permadeath.pk3`,
+    * `cgame.dll`,
+    * `cgamex86_64.dll`,
+    * `qagame.dll`,
+    * `qagamex86_64.dll`,
+    * `ui.dll`,
+    * `uix86_64.dll`, and 
+    * `description.txt`
 3. Add these parameters to make it work properly:
     ```
     +set fs_game permadeath +set vm_cgame 0 +set vm_game 0 +set vm_ui 0 +set sv_pure 0
