@@ -165,9 +165,12 @@ For example: `run0013-skill3-q3dm3` (so, if this is my 13th run, it means I died
 - [x] Extra Lives system: if the player has no extra lives and dies, permanent death happens (aka game over screen, reset progress as usual). If the player has any extra lives, the player will have a life subtracted before respawning and a sound will be played (the hud will remain displayed and the music will keep going): `pak0.pk3/sound/world/1shot_gong.wav`. When the player starts the entire run, the player starts with zero extra lives. The player will get an extra life every time the player has beaten a tier. (eg. Tier 0 has one map, if player beats q3dm0, the player will have 1 extra life. If the player beats Tier 1's four maps, the player will get an extra life, so that the player will have 2 lives tops by the time the player reaches Tier 2. If the player beats Tier 2 maps without dying, the player will have 3 lives tops, and so on).
     - [x] Add a counter in the HUD at the right of the health count if there's more than zero extra lives. The number will be white. 
     - [x] New toggle: "True permadeath", if this is enabled, there's no extra lives system and it will work as before, you die once, the game is over.
+- [ ] Finish readme.md
 
 
 ## Seventh iteration
+- [ ] Investigate whether is there a way to seamlessly execute the mod without the need to add a thousand launch parameters to make it work. Otherwise, verify whether the changes are detected for the run to run properly, or make a warning message to the user telling that the game did not run with the required parameters.
+- [ ] Investigate whether the campaign progress isn't affected in the vanilla from the mod, or if there's a need to mirror the progress *for* this mod...
 - [ ] Rework Achievements screen with the following layout (similar to the final Skirmish screen) using this mockup I put together (bricolaged from screenshots): `/permadeath_src/Originals/Permadeath-screen-2.png`
 
 
