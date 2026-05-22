@@ -127,6 +127,45 @@
     - [x] Have the ammo numbers go white if value is higher than the starting ammo (aka the amount of ammo gotten from when the weapon is picked up).
     - [x] Verify whether the damage absorption changes depending on the armor that was picked up (red or yellow)
         - N/A: `ARMOR_PROTECTION = 0.66` is a single global constant; the game only tracks armor count (`STAT_ARMOR`), not pickup type. Red and yellow armor absorb damage identically — no swap needed.
+- [x] New medal: "Haste" (just like the powerup): this is a medal that is rewarded during intermission (like the "Frags" one). To get this medal, the player has to win before the timestamp designated for said map. The timestamps are the following:
+    * q3dm0: 45 seconds
+    * q3dm1: 105 seconds
+    * q3dm2: 135 seconds
+    * q3dm3: 105 seconds
+    * q3tourney1: 105 seconds
+    * q3dm4: 75 seconds
+    * q3dm5: 60 seconds
+    * q3dm6: 90 seconds
+    * q3tourney2: 60 seconds
+    * q3dm7: 80 seconds
+    * q3dm8: 90 seconds
+    * q3dm9: 75 seconds
+    * q3tourney3: 45 seconds
+    * q3dm10: 90 seconds
+    * q3dm11: 75 seconds
+    * q3dm12: 75 seconds
+    * q3tourney4: 45 seconds
+    * q3dm13: 75 seconds
+    * q3dm14: 75 seconds
+    * q3dm15: 75 seconds
+    * q3tourney5: 40 seconds
+    * q3dm16: 90 seconds
+    * q3dm17: 40 seconds
+    * q3dm18: 40 seconds
+    * q3dm19: 75 seconds
+    * q3tourney6: 45 seconds
+FYI these are based on the level leaderboards from speedrun.com. These are based on the last place of each, but rounded up in multipliers of 10 (the ceiling number of each) * 1.5
+The sound to play when awarding such medal must be: `baseq3.pk3/sound/items/haste.wav`
+- [x] New toggle: auto-record: enabled by default. Found If enabled, every time a match is loaded, start recording a demo with the following filename pattern: `run*number*-skill*number*-mapname`, where:
+    * *number* in "run": is the total death count (seen in the permadeath statistics) + 1, the number has 4 padding zeroes (`0000`)
+    * *number* in "skill": is the difficulty chosen for the match
+    * "mapname": the codename of the map (eg. q3dm0, q3tourney1...).
+For example: `run0013-skill3-q3dm3` (so, if this is my 13th run, it means I died 12 times before this run. The "skill3" means hurt me plenty. The map is Arena of Death (q3dm3)).
+    If possible, add a separator inside "Setup/Game Options" and add the toggle below said separator.
+- [x] Extra Lives system: if the player has no extra lives and dies, permanent death happens (aka game over screen, reset progress as usual). If the player has any extra lives, the player will have a life subtracted before respawning and a sound will be played (the hud will remain displayed and the music will keep going): `pak0.pk3/sound/world/1shot_gong.wav`. When the player starts the entire run, the player starts with zero extra lives. The player will get an extra life every time the player has beaten a tier. (eg. Tier 0 has one map, if player beats q3dm0, the player will have 1 extra life. If the player beats Tier 1's four maps, the player will get an extra life, so that the player will have 2 lives tops by the time the player reaches Tier 2. If the player beats Tier 2 maps without dying, the player will have 3 lives tops, and so on).
+    - [x] Add a counter in the HUD at the right of the health count if there's more than zero extra lives. The number will be white. 
+    - [x] New toggle: "True permadeath", if this is enabled, there's no extra lives system and it will work as before, you die once, the game is over.
+
 
 ## Seventh iteration
 - [ ] Rework Achievements screen with the following layout (similar to the final Skirmish screen) using this mockup I put together (bricolaged from screenshots): `/permadeath_src/Originals/Permadeath-screen-2.png`

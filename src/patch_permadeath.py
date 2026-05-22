@@ -904,6 +904,542 @@ def run(ioq3, PD_VERSION='dev'):
              '#define PD_VERSION "' + PD_VERSION + '"',
              'ui_pd_stats.c: set PD_VERSION to ' + PD_VERSION)
 
+    # =========================================================================
+    # SIXTH ITERATION: Haste medal in SP intermission
+    # =========================================================================
+
+    # -------------------------------------------------------------------------
+    # ui_local.h: add AWARD_HASTE to the awardType_t enum (value 6).
+    # -------------------------------------------------------------------------
+    f = p('code/q3_ui/ui_local.h')
+    if already(f, 'AWARD_HASTE'):
+        print('  [SKIP] ui_local.h (AWARD_HASTE) already patched')
+    else:
+        patch_re(f,
+                 r'(\tAWARD_PERFECT)\s*\n(\s*\}\s*awardType_t\s*;)',
+                 '\\1,\n\tAWARD_HASTE\n\\2',
+                 'ui_local.h: add AWARD_HASTE to awardType_t')
+
+    # -------------------------------------------------------------------------
+    # ui_sppostgame.c: expand medal infrastructure from 6 to 7 slots and add
+    # Haste as the 7th medal checked via the pd_haste cvar set by the game DLL.
+    # -------------------------------------------------------------------------
+    f = p('code/q3_ui/ui_sppostgame.c')
+    if already(f, 'pd_haste'):
+        print('  [SKIP] ui_sppostgame.c (Haste medal) already patched')
+    else:
+        # Expand postgameMenuInfo_t award arrays from [6] to [7]
+        patch_re(f,
+                 r'(int\s+awardsEarned)\[6\](;\s+int\s+awardsLevels)\[6\](;\s+qboolean\s+playedSound)\[6\]',
+                 '\\1[7]\\2[7]\\3[7]',
+                 'ui_sppostgame.c: expand award arrays [6] -> [7]')
+
+        # Expand medalLocations array and add 7th position (x=296, screen center)
+        patch_literal(f,
+                      'static int medalLocations[6] = {144, 448, 88, 504, 32, 560};',
+                      'static int medalLocations[7] = {144, 448, 88, 504, 32, 560, 296};',
+                      'ui_sppostgame.c: expand medalLocations to [7]')
+
+        # Add "Haste" to medal name array
+        patch_literal(f,
+                      '"Accuracy", "Impressive", "Excellent", "Gauntlet", "Frags", "Perfect"};',
+                      '"Accuracy", "Impressive", "Excellent", "Gauntlet", "Frags", "Perfect", "Haste"};',
+                      'ui_sppostgame.c: add Haste to ui_medalNames')
+
+        # Add haste powerup icon to pic names array
+        patch_literal(f,
+                      '\t"menu/medals/medal_victory"\n};',
+                      '\t"menu/medals/medal_victory",\n\t"icons/haste"\n};',
+                      'ui_sppostgame.c: add icons/haste to ui_medalPicNames')
+
+        # Add haste sound to sounds array
+        patch_literal(f,
+                      '\t"sound/feedback/perfect.wav"\n};',
+                      '\t"sound/feedback/perfect.wav",\n\t"sound/items/haste.wav"\n};',
+                      'ui_sppostgame.c: add haste.wav to ui_medalSounds')
+
+        # Expand local awardValues array from [6] to [7]
+        patch_re(f,
+                 r'(int\s+awardValues)\[6\];',
+                 '\\1[7];',
+                 'ui_sppostgame.c: expand awardValues [6] -> [7]')
+
+        # Append Haste check after Perfect block
+        patch_literal(f,
+                      '\tif( awardValues[AWARD_PERFECT] ) {\n'
+                      '\t\tUI_LogAwardData( AWARD_PERFECT, 1 );\n'
+                      '\t\tpostgameMenuInfo.awardsEarned[postgameMenuInfo.numAwards] = AWARD_PERFECT;\n'
+                      '\t\tpostgameMenuInfo.awardsLevels[postgameMenuInfo.numAwards] = 1;\n'
+                      '\t\tpostgameMenuInfo.numAwards++;\n'
+                      '\t}',
+                      ('\tif( awardValues[AWARD_PERFECT] ) {\n'
+                       '\t\tUI_LogAwardData( AWARD_PERFECT, 1 );\n'
+                       '\t\tpostgameMenuInfo.awardsEarned[postgameMenuInfo.numAwards] = AWARD_PERFECT;\n'
+                       '\t\tpostgameMenuInfo.awardsLevels[postgameMenuInfo.numAwards] = 1;\n'
+                       '\t\tpostgameMenuInfo.numAwards++;\n'
+                       '\t}\n'
+                       '\tif ( trap_Cvar_VariableValue( "pd_haste" ) ) { /* pd_haste */\n'
+                       '\t\tpostgameMenuInfo.awardsEarned[postgameMenuInfo.numAwards] = AWARD_HASTE;\n'
+                       '\t\tpostgameMenuInfo.awardsLevels[postgameMenuInfo.numAwards] = 1;\n'
+                       '\t\tpostgameMenuInfo.numAwards++;\n'
+                       '\t}'),
+                      'ui_sppostgame.c: add Haste medal check after Perfect')
+
+    # -------------------------------------------------------------------------
+    # ui_main.c: register pd_haste_earned as CVAR_ARCHIVE so the count of times
+    # the Haste medal was earned persists across sessions.
+    # -------------------------------------------------------------------------
+    f = p('code/q3_ui/ui_main.c')
+    if already(f, 'pd_haste_earned'):
+        print('  [SKIP] ui_main.c (pd_haste_earned) already patched')
+    else:
+        patch_literal(f,
+                      '\t{ &ui_pdTierAch, "pd_tier_ach", "0", CVAR_ARCHIVE },',
+                      ('\t{ &ui_pdTierAch, "pd_tier_ach", "0", CVAR_ARCHIVE },\n'
+                       '\t{ NULL, "pd_haste_earned", "0", CVAR_ARCHIVE },'),
+                      'ui_main.c: register pd_haste_earned as CVAR_ARCHIVE')
+
+    # -------------------------------------------------------------------------
+    # ui_splevel.c: expand medal arrays from [6] to [7] and add Haste medal
+    # display and click-to-play-sound support.
+    # -------------------------------------------------------------------------
+    f = p('code/q3_ui/ui_splevel.c')
+    if already(f, 'pd_haste_gsp'):
+        print('  [SKIP] ui_splevel.c (Haste medal) already patched')
+    else:
+        # Expand struct arrays
+        patch_re(f,
+                 r'(menubitmap_s\s+item_awards)\[6\]',
+                 '\\1[7]',
+                 'ui_splevel.c: expand item_awards [6] -> [7]')
+        patch_re(f,
+                 r'(int\s+awardLevels)\[6\]',
+                 '\\1[7]',
+                 'ui_splevel.c: expand awardLevels [6] -> [7]')
+        patch_re(f,
+                 r'(sfxHandle_t\s+awardSounds)\[6\]',
+                 '\\1[7]',
+                 'ui_splevel.c: expand awardSounds [6] -> [7]')
+
+        # Registration loop: n < 6 -> n < 7
+        patch_literal(f,
+                      '\tfor( n = 0; n < 6; n++ ) {\n'
+                      '\t\ttrap_R_RegisterShaderNoMip( ui_medalPicNames[n] );\n'
+                      '\t\tlevelMenuInfo.awardSounds[n] = trap_S_RegisterSound( ui_medalSounds[n], qfalse );\n'
+                      '\t}',
+                      ('\tfor( n = 0; n < 7; n++ ) {\n'
+                       '\t\ttrap_R_RegisterShaderNoMip( ui_medalPicNames[n] );\n'
+                       '\t\tlevelMenuInfo.awardSounds[n] = trap_S_RegisterSound( ui_medalSounds[n], qfalse );\n'
+                       '\t}'),
+                      'ui_splevel.c: registration loop n < 6 -> n < 7')
+
+        # Award-level init: keep loop at 6 (UI_GetAwardLevel only knows 0-5),
+        # then set slot 6 from the persistent pd_haste_earned cvar.
+        patch_literal(f,
+                      '\tfor( n = 0; n < 6; n++ ) {\n'
+                      '\t\tlevelMenuInfo.awardLevels[n] = UI_GetAwardLevel( n );\n'
+                      '\t}\n'
+                      '\tlevelMenuInfo.awardLevels[AWARD_FRAGS] = 100 * (levelMenuInfo.awardLevels[AWARD_FRAGS] / 100);',
+                      ('\tfor( n = 0; n < 6; n++ ) {\n'
+                       '\t\tlevelMenuInfo.awardLevels[n] = UI_GetAwardLevel( n );\n'
+                       '\t}\n'
+                       '\tlevelMenuInfo.awardLevels[AWARD_FRAGS] = 100 * (levelMenuInfo.awardLevels[AWARD_FRAGS] / 100);\n'
+                       '\tlevelMenuInfo.awardLevels[AWARD_HASTE] = (int)trap_Cvar_VariableValue( "pd_haste_earned" ); /* pd_haste_earned */'),
+                      'ui_splevel.c: load AWARD_HASTE level from pd_haste_earned')
+
+        # Build/display loop: n < 6 -> n < 7
+        patch_literal(f,
+                      '\tfor( n = 0; n < 6; n++ ) {\n'
+                      '\t\tif( levelMenuInfo.awardLevels[n] ) {',
+                      ('\tfor( n = 0; n < 7; n++ ) {\n'
+                       '\t\tif( levelMenuInfo.awardLevels[n] ) {'),
+                      'ui_splevel.c: display loop n < 6 -> n < 7')
+
+
+    # -------------------------------------------------------------------------
+    # ui_splevel.c: the draw-counts loop (renders the number under each icon)
+    # also hard-codes n < 6, extend to n < 7 for AWARD_HASTE.
+    # Separate sentinel so it can be applied independently.
+    # -------------------------------------------------------------------------
+    f = p('code/q3_ui/ui_splevel.c')
+    if already(f, 'pd_haste_draw'):
+        print('  [SKIP] ui_splevel.c (draw-counts loop) already patched')
+    else:
+        patch_literal(f,
+                      '\t// draw player award levels\n'
+                      '\ty = AWARDS_Y;\n'
+                      '\ti = 0;\n'
+                      '\tfor( n = 0; n < 6; n++ ) {',
+                      ('\t// draw player award levels\n'
+                       '\ty = AWARDS_Y;\n'
+                       '\ti = 0;\n'
+                       '\tfor( n = 0; n < 7; n++ ) { /* pd_haste_draw */'),
+                      'ui_splevel.c: draw-counts loop n < 6 -> n < 7')
+
+    # -------------------------------------------------------------------------
+    # ui_gameinfo.c: extend UI_LogAwardData guard to allow AWARD_HASTE (index 6)
+    # so Haste can be recorded in g_spAwards like every other medal.
+    # -------------------------------------------------------------------------
+    f = p('code/q3_ui/ui_gameinfo.c')
+    if already(f, 'award > AWARD_HASTE'):
+        print('  [SKIP] ui_gameinfo.c (AWARD_HASTE guard) already patched')
+    else:
+        patch_literal(f,
+                      '\tif( award > AWARD_PERFECT ) {',
+                      '\tif( award > AWARD_HASTE ) {',
+                      'ui_gameinfo.c: extend LogAwardData guard to AWARD_HASTE')
+
+    # -------------------------------------------------------------------------
+    # ui_sppostgame.c: record the Haste medal in g_spAwards when it is earned
+    # so the Choose Level screen can display it (and it clears on death).
+    # -------------------------------------------------------------------------
+    f = p('code/q3_ui/ui_sppostgame.c')
+    if already(f, 'UI_LogAwardData( AWARD_HASTE'):
+        print('  [SKIP] ui_sppostgame.c (LogAwardData Haste) already patched')
+    else:
+        patch_literal(f,
+                      '\tif ( trap_Cvar_VariableValue( "pd_haste" ) ) { /* pd_haste */\n'
+                      '\t\tpostgameMenuInfo.awardsEarned[postgameMenuInfo.numAwards] = AWARD_HASTE;\n'
+                      '\t\tpostgameMenuInfo.awardsLevels[postgameMenuInfo.numAwards] = 1;\n'
+                      '\t\tpostgameMenuInfo.numAwards++;\n'
+                      '\t}',
+                      ('\tif ( trap_Cvar_VariableValue( "pd_haste" ) ) { /* pd_haste */\n'
+                       '\t\tUI_LogAwardData( AWARD_HASTE, 1 );\n'
+                       '\t\tpostgameMenuInfo.awardsEarned[postgameMenuInfo.numAwards] = AWARD_HASTE;\n'
+                       '\t\tpostgameMenuInfo.awardsLevels[postgameMenuInfo.numAwards] = 1;\n'
+                       '\t\tpostgameMenuInfo.numAwards++;\n'
+                       '\t}'),
+                      'ui_sppostgame.c: record AWARD_HASTE in g_spAwards')
+
+    # -------------------------------------------------------------------------
+    # ui_splevel.c: use UI_GetAwardLevel(AWARD_HASTE) (reads g_spAwards key a6,
+    # cleared on death) instead of the permanent pd_haste_earned counter.
+    # -------------------------------------------------------------------------
+    f = p('code/q3_ui/ui_splevel.c')
+    if already(f, 'pd_haste_gsp'):
+        print('  [SKIP] ui_splevel.c (AWARD_HASTE via g_spAwards) already patched')
+    else:
+        patch_literal(f,
+                      'levelMenuInfo.awardLevels[AWARD_HASTE] = (int)trap_Cvar_VariableValue( "pd_haste_earned" ); /* pd_haste_earned */',
+                      'levelMenuInfo.awardLevels[AWARD_HASTE] = UI_GetAwardLevel( AWARD_HASTE ); /* pd_haste_gsp */',
+                      'ui_splevel.c: AWARD_HASTE reads g_spAwards (clears on death)')
+
+    # =========================================================================
+    # SIXTH ITERATION: Auto-record demo toggle in Game Options
+    # =========================================================================
+
+    # -------------------------------------------------------------------------
+    # ui_main.c: register pd_autorecord as CVAR_ARCHIVE, default on.
+    # -------------------------------------------------------------------------
+    f = p('code/q3_ui/ui_main.c')
+    if already(f, 'pd_autorecord'):
+        print('  [SKIP] ui_main.c (pd_autorecord) already patched')
+    else:
+        patch_literal(f,
+                      '\t{ NULL, "pd_haste_earned", "0", CVAR_ARCHIVE },',
+                      ('\t{ NULL, "pd_haste_earned", "0", CVAR_ARCHIVE },\n'
+                       '\t{ NULL, "pd_autorecord", "1", CVAR_ARCHIVE },'),
+                      'ui_main.c: register pd_autorecord as CVAR_ARCHIVE (default on)')
+
+    # -------------------------------------------------------------------------
+    # ui_preferences.c: add Auto Record toggle to Game Options.
+    # A double-height y gap acts as the visual separator before the new item.
+    # -------------------------------------------------------------------------
+    f = p('code/q3_ui/ui_preferences.c')
+    if already(f, 'pd_autorecord'):
+        print('  [SKIP] ui_preferences.c (auto-record) already patched')
+    else:
+        # New ID constant
+        patch_re(f,
+                 r'(#define\s+ID_BACK\s+138)',
+                 '\\1\n#define ID_AUTORECORD\t\t\t139',
+                 'ui_preferences.c: add ID_AUTORECORD')
+
+        # Struct field
+        patch_literal(f,
+                      '\tmenuradiobutton_s\tallowdownload;\n'
+                      '\tmenubitmap_s\t\tback;',
+                      '\tmenuradiobutton_s\tallowdownload;\n'
+                      '\tmenuradiobutton_s\tautorecord;\n'
+                      '\tmenubitmap_s\t\tback;',
+                      'ui_preferences.c: add autorecord struct field')
+
+        # SetMenuItems
+        patch_literal(f,
+                      's_preferences.allowdownload.curvalue\t= trap_Cvar_VariableValue( "cl_allowDownload" ) != 0;',
+                      ('s_preferences.allowdownload.curvalue\t= trap_Cvar_VariableValue( "cl_allowDownload" ) != 0;\n'
+                       '\ts_preferences.autorecord.curvalue\t\t= trap_Cvar_VariableValue( "pd_autorecord" ) != 0;'),
+                      'ui_preferences.c: read pd_autorecord in SetMenuItems')
+
+        # Event handler
+        patch_literal(f,
+                      '\tcase ID_ALLOWDOWNLOAD:\n'
+                      '\t\ttrap_Cvar_SetValue( "cl_allowDownload", s_preferences.allowdownload.curvalue );\n'
+                      '\t\ttrap_Cvar_SetValue( "sv_allowDownload", s_preferences.allowdownload.curvalue );\n'
+                      '\t\tbreak;\n'
+                      '\n'
+                      '\tcase ID_BACK:',
+                      ('\tcase ID_ALLOWDOWNLOAD:\n'
+                       '\t\ttrap_Cvar_SetValue( "cl_allowDownload", s_preferences.allowdownload.curvalue );\n'
+                       '\t\ttrap_Cvar_SetValue( "sv_allowDownload", s_preferences.allowdownload.curvalue );\n'
+                       '\t\tbreak;\n'
+                       '\n'
+                       '\tcase ID_AUTORECORD:\n'
+                       '\t\ttrap_Cvar_SetValue( "pd_autorecord", s_preferences.autorecord.curvalue );\n'
+                       '\t\tbreak;\n'
+                       '\n'
+                       '\tcase ID_BACK:'),
+                      'ui_preferences.c: handle ID_AUTORECORD in event switch')
+
+        # MenuInit: init item (double y gap as separator before the new item)
+        patch_re(f,
+                 r'(s_preferences\.allowdownload\.generic\.y\s*=\s*y\s*;)'
+                 r'(\s*\n\s*s_preferences\.back\.generic\.type)',
+                 ('\\1\n'
+                  '\n'
+                  '\ty += BIGCHAR_HEIGHT * 2;\n'
+                  '\ts_preferences.autorecord.generic.type     = MTYPE_RADIOBUTTON;\n'
+                  '\ts_preferences.autorecord.generic.name     = "Auto Record:";\n'
+                  '\ts_preferences.autorecord.generic.flags    = QMF_PULSEIFFOCUS|QMF_SMALLFONT;\n'
+                  '\ts_preferences.autorecord.generic.callback = Preferences_Event;\n'
+                  '\ts_preferences.autorecord.generic.id       = ID_AUTORECORD;\n'
+                  '\ts_preferences.autorecord.generic.x        = PREFERENCES_X_POS;\n'
+                  '\ts_preferences.autorecord.generic.y        = y;'
+                  '\\2'),
+                 'ui_preferences.c: init autorecord item in MenuInit')
+
+        # Menu_AddItem
+        patch_literal(f,
+                      '\tMenu_AddItem( &s_preferences.menu, &s_preferences.allowdownload );\n'
+                      '\n'
+                      '\tMenu_AddItem( &s_preferences.menu, &s_preferences.back );',
+                      ('\tMenu_AddItem( &s_preferences.menu, &s_preferences.allowdownload );\n'
+                       '\tMenu_AddItem( &s_preferences.menu, &s_preferences.autorecord );\n'
+                       '\n'
+                       '\tMenu_AddItem( &s_preferences.menu, &s_preferences.back );'),
+                      'ui_preferences.c: register autorecord with Menu_AddItem')
+
+    # -------------------------------------------------------------------------
+    # cg_main.c: at the end of CG_Init, if pd_autorecord is set and we are in
+    # SP mode, stop any existing recording and start a new demo named:
+    #   run{DDDD}-skill{N}-{mapname}
+    # where DDDD = total deaths + 1 (this run's number), N = g_spSkill.
+    # -------------------------------------------------------------------------
+    f = p('code/cgame/cg_main.c')
+    if already(f, 'pd_autorecord'):
+        print('  [SKIP] cg_main.c (auto-record) already patched')
+    else:
+        patch_literal(f,
+                      '\ttrap_S_ClearLoopingSounds( qtrue );\n'
+                      '}',
+                      ('\ttrap_S_ClearLoopingSounds( qtrue );\n'
+                       '\n'
+                       '\t/* pd_autorecord: start per-map demo if toggle is on */\n'
+                       '\t{\n'
+                       '\t\tchar _arec[4];\n'
+                       '\t\ttrap_Cvar_VariableStringBuffer( "pd_autorecord", _arec, sizeof(_arec) );\n'
+                       '\t\tif ( cgs.gametype == GT_SINGLE_PLAYER && atoi( _arec ) ) {\n'
+                       '\t\t\tint  deaths, run, skill;\n'
+                       '\t\t\tchar _d1[8], _d2[8], _d3[8], _sk[4];\n'
+                       '\t\t\tchar mapname[64], demoname[128];\n'
+                       '\t\t\ttrap_Cvar_VariableStringBuffer( "pd_s123_deaths", _d1, sizeof(_d1) );\n'
+                       '\t\t\ttrap_Cvar_VariableStringBuffer( "pd_s4_deaths",   _d2, sizeof(_d2) );\n'
+                       '\t\t\ttrap_Cvar_VariableStringBuffer( "pd_s5_deaths",   _d3, sizeof(_d3) );\n'
+                       '\t\t\ttrap_Cvar_VariableStringBuffer( "g_spSkill",      _sk, sizeof(_sk) );\n'
+                       '\t\t\tdeaths = atoi( _d1 ) + atoi( _d2 ) + atoi( _d3 );\n'
+                       '\t\t\trun    = deaths + 1;\n'
+                       '\t\t\tskill  = atoi( _sk );\n'
+                       '\t\t\ttrap_Cvar_VariableStringBuffer( "mapname", mapname, sizeof(mapname) );\n'
+                       '\t\t\tCom_sprintf( demoname, sizeof(demoname),\n'
+                       '\t\t\t             "run%04i-skill%i-%s", run, skill, mapname );\n'
+                       '\t\t\ttrap_Cvar_Set( "pd_demoname_pending", demoname );\n'
+                       '\t\t} else {\n'
+                       '\t\t\ttrap_Cvar_Set( "pd_demoname_pending", "" );\n'
+                       '\t\t}\n'
+                       '\t}\n'
+                       '}'),
+                      'cg_main.c: auto-record demo on map load in CG_Init')
+
+    # -------------------------------------------------------------------------
+    # cg_view.c: fire the deferred record on the first frame.
+    # demoPlayback is passed directly here, so we can skip recording during
+    # demo playback without any engine-side cvar needed.
+    # -------------------------------------------------------------------------
+    f = p('code/cgame/cg_view.c')
+    if already(f, 'pd_demoname_pending'):
+        print('  [SKIP] cg_view.c (auto-record first-frame) already patched')
+    else:
+        patch_literal(f,
+                      '\tcg.demoPlayback = demoPlayback;\n',
+                      ('\tcg.demoPlayback = demoPlayback;\n'
+                       '\n'
+                       '\t/* pd_autorecord: fire deferred record on first frame, skip during demo playback */\n'
+                       '\t{\n'
+                       '\t\tchar _pending[128];\n'
+                       '\t\ttrap_Cvar_VariableStringBuffer( "pd_demoname_pending", _pending, sizeof(_pending) );\n'
+                       '\t\tif ( _pending[0] ) {\n'
+                       '\t\t\ttrap_Cvar_Set( "pd_demoname_pending", "" );\n'
+                       '\t\t\tif ( !demoPlayback ) {\n'
+                       '\t\t\t\ttrap_SendConsoleCommand( "stoprecord\\n" );\n'
+                       '\t\t\t\ttrap_SendConsoleCommand( va( "wait 2; record %s\\n", _pending ) );\n'
+                       '\t\t\t}\n'
+                       '\t\t}\n'
+                       '\t}\n'
+                       '\n'
+                       '\t/* pd_extraloss: play gong sound when an extra life is consumed */\n'
+                       '\t{\n'
+                       '\t\tchar _el[4];\n'
+                       '\t\tstatic sfxHandle_t pd_gongSfx = 0;\n'
+                       '\t\ttrap_Cvar_VariableStringBuffer( "pd_extraloss", _el, sizeof(_el) );\n'
+                       '\t\tif ( atoi( _el ) ) {\n'
+                       '\t\t\tif ( !pd_gongSfx )\n'
+                       '\t\t\t\tpd_gongSfx = trap_S_RegisterSound( "sound/world/1shot_gong.wav", qfalse );\n'
+                       '\t\t\ttrap_S_StartLocalSound( pd_gongSfx, CHAN_ANNOUNCER );\n'
+                       '\t\t\ttrap_Cvar_Set( "pd_extraloss", "0" );\n'
+                       '\t\t}\n'
+                       '\t}\n'),
+                      'cg_view.c: start auto-record on first frame, skip if demo playback')
+
+    # =========================================================================
+    # SIXTH ITERATION: Extra Lives system
+    # =========================================================================
+
+    # -------------------------------------------------------------------------
+    # ui_main.c: register pd_extra_lives and pd_true_permadeath.
+    # -------------------------------------------------------------------------
+    f = p('code/q3_ui/ui_main.c')
+    if already(f, 'pd_extra_lives'):
+        print('  [SKIP] ui_main.c (pd_extra_lives) already patched')
+    else:
+        patch_literal(f,
+                      '\t{ NULL, "pd_autorecord", "1", CVAR_ARCHIVE },',
+                      ('\t{ NULL, "pd_autorecord", "1", CVAR_ARCHIVE },\n'
+                       '\t{ NULL, "pd_extra_lives", "0", CVAR_ARCHIVE },\n'
+                       '\t{ NULL, "pd_true_permadeath", "0", CVAR_ARCHIVE },\n'
+                       '\t{ NULL, "pd_completed_maps", "0", CVAR_ARCHIVE },'),
+                      'ui_main.c: register pd_extra_lives and pd_true_permadeath')
+
+    # -------------------------------------------------------------------------
+    # ui_preferences.c: add True Permadeath toggle below Auto Record.
+    # -------------------------------------------------------------------------
+    f = p('code/q3_ui/ui_preferences.c')
+    if already(f, 'pd_true_permadeath'):
+        print('  [SKIP] ui_preferences.c (true-permadeath) already patched')
+    else:
+        # ID constant
+        patch_literal(f,
+                      '#define ID_AUTORECORD\t\t\t139',
+                      '#define ID_AUTORECORD\t\t\t139\n'
+                      '#define ID_TRUEPERMADEATH\t\t140',
+                      'ui_preferences.c: add ID_TRUEPERMADEATH constant')
+
+        # Struct field
+        patch_literal(f,
+                      '\tmenuradiobutton_s\tautorecord;\n'
+                      '\tmenubitmap_s\t\tback;',
+                      '\tmenuradiobutton_s\tautorecord;\n'
+                      '\tmenuradiobutton_s\ttruepermadeath;\n'
+                      '\tmenubitmap_s\t\tback;',
+                      'ui_preferences.c: add truepermadeath struct field')
+
+        # SetMenuItems
+        patch_literal(f,
+                      '\ts_preferences.autorecord.curvalue\t\t= trap_Cvar_VariableValue( "pd_autorecord" ) != 0;',
+                      ('\ts_preferences.autorecord.curvalue\t\t= trap_Cvar_VariableValue( "pd_autorecord" ) != 0;\n'
+                       '\ts_preferences.truepermadeath.curvalue\t= trap_Cvar_VariableValue( "pd_true_permadeath" ) != 0;'),
+                      'ui_preferences.c: read pd_true_permadeath in SetMenuItems')
+
+        # Event handler
+        patch_literal(f,
+                      '\tcase ID_AUTORECORD:\n'
+                      '\t\ttrap_Cvar_SetValue( "pd_autorecord", s_preferences.autorecord.curvalue );\n'
+                      '\t\tbreak;\n'
+                      '\n'
+                      '\tcase ID_BACK:',
+                      ('\tcase ID_AUTORECORD:\n'
+                       '\t\ttrap_Cvar_SetValue( "pd_autorecord", s_preferences.autorecord.curvalue );\n'
+                       '\t\tbreak;\n'
+                       '\n'
+                       '\tcase ID_TRUEPERMADEATH:\n'
+                       '\t\ttrap_Cvar_SetValue( "pd_true_permadeath", s_preferences.truepermadeath.curvalue );\n'
+                       '\t\tbreak;\n'
+                       '\n'
+                       '\tcase ID_BACK:'),
+                      'ui_preferences.c: handle ID_TRUEPERMADEATH in event switch')
+
+        # MenuInit: item init (immediately below autorecord, no extra separator gap)
+        patch_literal(f,
+                      '\ts_preferences.autorecord.generic.y        = y;',
+                      ('\ts_preferences.autorecord.generic.y        = y;\n'
+                       '\n'
+                       '\ty += BIGCHAR_HEIGHT;\n'
+                       '\ts_preferences.truepermadeath.generic.type     = MTYPE_RADIOBUTTON;\n'
+                       '\ts_preferences.truepermadeath.generic.name     = "True Permadeath:";\n'
+                       '\ts_preferences.truepermadeath.generic.flags    = QMF_PULSEIFFOCUS|QMF_SMALLFONT;\n'
+                       '\ts_preferences.truepermadeath.generic.callback = Preferences_Event;\n'
+                       '\ts_preferences.truepermadeath.generic.id       = ID_TRUEPERMADEATH;\n'
+                       '\ts_preferences.truepermadeath.generic.x        = PREFERENCES_X_POS;\n'
+                       '\ts_preferences.truepermadeath.generic.y        = y;'),
+                      'ui_preferences.c: init truepermadeath item in MenuInit')
+
+        # Menu_AddItem
+        patch_literal(f,
+                      '\tMenu_AddItem( &s_preferences.menu, &s_preferences.autorecord );\n'
+                      '\n'
+                      '\tMenu_AddItem( &s_preferences.menu, &s_preferences.back );',
+                      ('\tMenu_AddItem( &s_preferences.menu, &s_preferences.autorecord );\n'
+                       '\tMenu_AddItem( &s_preferences.menu, &s_preferences.truepermadeath );\n'
+                       '\n'
+                       '\tMenu_AddItem( &s_preferences.menu, &s_preferences.back );'),
+                      'ui_preferences.c: register truepermadeath with Menu_AddItem')
+
+    # -------------------------------------------------------------------------
+    # cg_draw.c: draw extra lives counter (white) to the right of health,
+    # in the gap between the player head icon and the armor field.
+    # Layout (virtual 640x480): ammo@0, health@185, head@285, armor@370.
+    # Drawn at half digit size (CHAR_WIDTH/2 x CHAR_HEIGHT/2), right-anchored
+    # so the right edge aligns with where a full-size digit would end.
+    # -------------------------------------------------------------------------
+    f = p('code/cgame/cg_draw.c')
+    if already(f, 'pd_extra_lives'):
+        print('  [SKIP] cg_draw.c (extra-lives HUD) already patched')
+    else:
+        patch_literal(f,
+                      '\tCG_ColorForHealth( hcolor );\n'
+                      '\ttrap_R_SetColor( hcolor );\n'
+                      '\n'
+                      '\n'
+                      '\t//\n'
+                      '\t// armor\n'
+                      '\t//',
+                      ('\tCG_ColorForHealth( hcolor );\n'
+                       '\ttrap_R_SetColor( hcolor );\n'
+                       '\n'
+                       '\t/* pd_extra_lives: half-size white counter, right-anchored between head and armor */\n'
+                       '\t{\n'
+                       '\t\tchar _lv[4];\n'
+                       '\t\tint  _lives;\n'
+                       '\t\ttrap_Cvar_VariableStringBuffer( "pd_extra_lives", _lv, sizeof(_lv) );\n'
+                       '\t\t_lives = atoi( _lv );\n'
+                       '\t\tif ( _lives > 0 ) {\n'
+                       '\t\t\tint _w = CHAR_WIDTH / 2;\n'
+                       '\t\t\tint _h = CHAR_HEIGHT / 2;\n'
+                       '\t\t\tint _x = 285 + ICON_SIZE + TEXT_ICON_SPACE + CHAR_WIDTH / 2;\n'
+                       '\t\t\tint _y = 432 + CHAR_HEIGHT / 4;\n'
+                       '\t\t\tvec4_t _white = { 1.0f, 1.0f, 1.0f, 1.0f };\n'
+                       '\t\t\tif ( _lives > 9 ) _lives = 9;\n'
+                       '\t\t\ttrap_R_SetColor( _white );\n'
+                       '\t\t\tCG_DrawPic( _x, _y, _w, _h, cgs.media.numberShaders[_lives] );\n'
+                       '\t\t\ttrap_R_SetColor( NULL );\n'
+                       '\t\t}\n'
+                       '\t}\n'
+                       '\n'
+                       '\n'
+                       '\t//\n'
+                       '\t// armor\n'
+                       '\t//'),
+                      'cg_draw.c: extra lives counter in CG_DrawStatusBar')
+
     print('\nAll patches applied successfully.')
 
 

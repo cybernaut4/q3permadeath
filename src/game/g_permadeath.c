@@ -35,6 +35,18 @@ static const char *s_pd_campaign[PD_CAMPAIGN_SIZE] = {
 	"q3tourney6"
 };
 
+/* Haste medal: win within this many seconds (2x speedrun.com last-place, tunable). */
+static const int s_pd_hasteThreshold[PD_CAMPAIGN_SIZE] = {
+	45,
+	105, 135, 105, 105,
+	75,  60, 90,  60,
+	75, 90, 75,  45,
+	90, 75, 75,  45,
+	75, 75, 75,  60,
+	90,  60,  60, 75,
+	45
+};
+
 static const char *PD_Track( void ) {
 	int skill = (int)trap_Cvar_VariableValue( "g_spSkill" );
 	if ( skill >= 5 ) return "s5";
@@ -145,6 +157,8 @@ void PermaDeath_TrackMatchEnd( void ) {
 				PD_RecordDeathStats( 19, qtrue );
 				pd_timeRecorded = qtrue;
 				trap_Cvar_Set( "permadeath_died", "0" );
+				trap_Cvar_Set( "pd_extra_lives", "0" );
+				trap_Cvar_Set( "pd_completed_maps", "0" );
 				trap_Cvar_Set( "permadeath_gameOver", "19" );
 				trap_Cvar_Set( "pd_achievements", va( "%i",
 				    (int)trap_Cvar_VariableValue( "pd_achievements" ) | (1 << 18) ) );
@@ -173,6 +187,53 @@ void PermaDeath_TrackMatchEnd( void ) {
 			trap_Cvar_VariableStringBuffer( "mapname", mapname, sizeof(mapname) );
 			if ( Q_stricmp( mapname, "q3tourney6" ) == 0 ) {
 				PD_IncrStat( tr, "gamewon" );
+			}
+			/* Haste medal: won within per-map speed threshold */
+			{
+				int mapidx = PD_CampaignIdx( mapname );
+				if ( mapidx >= 0 ) {
+					int elapsed = (level.time - level.startTime) / 1000;
+					if ( elapsed < s_pd_hasteThreshold[mapidx] ) {
+						int earned = (int)trap_Cvar_VariableValue( "pd_haste_earned" );
+						trap_Cvar_Set( "pd_haste", "1" );
+						trap_Cvar_Set( "pd_haste_earned", va( "%i", earned + 1 ) );
+					}
+				}
+			}
+			/* Extra lives: grant one life when an entire tier is fully completed.
+			   Uses pd_completed_maps (26-bit bitmask, one bit per campaign map)
+			   to detect the first time all maps in a tier are beaten this run. */
+			if ( !(int)trap_Cvar_VariableValue( "pd_true_permadeath" ) ) {
+				static const int tierMasks[8] = {
+					0x0000001,  /* tier 0: bit  0       (q3dm0)          */
+					0x000001E,  /* tier 1: bits 1-4     (q3dm1-3, t1)    */
+					0x00001E0,  /* tier 2: bits 5-8     (q3dm4-6, t2)    */
+					0x0001E00,  /* tier 3: bits 9-12    (q3dm7-9, t3)    */
+					0x001E000,  /* tier 4: bits 13-16   (q3dm10-12, t4)  */
+					0x01E0000,  /* tier 5: bits 17-20   (q3dm13-15, t5)  */
+					0x1E00000,  /* tier 6: bits 21-24   (q3dm16-19)      */
+					0x2000000   /* tier 7: bit  25      (q3tourney6)      */
+				};
+				int mapidx_el = PD_CampaignIdx( mapname );
+				if ( mapidx_el >= 0 ) {
+					char _cm[16];
+					int completed, bit, tier;
+					trap_Cvar_VariableStringBuffer( "pd_completed_maps", _cm, sizeof(_cm) );
+					completed = atoi( _cm );
+					bit = (1 << mapidx_el);
+					if ( !(completed & bit) ) {
+						completed |= bit;
+						trap_Cvar_Set( "pd_completed_maps", va( "%i", completed ) );
+						for ( tier = 0; tier < 8; tier++ ) {
+							if ( (bit & tierMasks[tier]) &&
+							     (completed & tierMasks[tier]) == tierMasks[tier] ) {
+								int lives = (int)trap_Cvar_VariableValue( "pd_extra_lives" );
+								trap_Cvar_Set( "pd_extra_lives", va( "%i", lives + 1 ) );
+								break;
+							}
+						}
+					}
+				}
 			}
 		} else {
 			/* Human player lost the match */
@@ -319,6 +380,17 @@ void PermaDeath_GameOver( gentity_t *ent ) {
 	int clientNum = ent - g_entities;
 	int type;
 	if ( pd_gameOverSent[clientNum] ) return;
+
+	/* Extra lives: consume one if available (skipped in True Permadeath mode) */
+	if ( !(int)trap_Cvar_VariableValue( "pd_true_permadeath" ) ) {
+		int lives = (int)trap_Cvar_VariableValue( "pd_extra_lives" );
+		if ( lives > 0 ) {
+			trap_Cvar_Set( "pd_extra_lives", va( "%i", lives - 1 ) );
+			trap_Cvar_Set( "permadeath_died", "0" );
+			ClientRespawn( ent );
+			return;
+		}
+	}
 	pd_gameOverSent[clientNum] = qtrue;
 
 	if ( pd_teleporterUsedTime == -1 ) {
@@ -360,6 +432,8 @@ void PermaDeath_GameOver( gentity_t *ent ) {
 	pd_timeRecorded = qtrue;
 
 	trap_Cvar_Set( "permadeath_died", "0" );
+	trap_Cvar_Set( "pd_extra_lives", "0" );
+	trap_Cvar_Set( "pd_completed_maps", "0" );
 	trap_Cvar_Set( "permadeath_gameOver", va( "%i", type ) );
 	trap_Cvar_Set( "pd_achievements", va( "%i",
 	    (int)trap_Cvar_VariableValue( "pd_achievements" ) | (1 << (type - 1)) ) );
@@ -381,6 +455,7 @@ void PermaDeath_InitGame( void ) {
 	int src  = (int)trap_Cvar_VariableValue( "permadeath_restart_src" );
 	trap_Cvar_Set( "permadeath_debug_gt",   va( "%i", g_gametype.integer ) );
 	trap_Cvar_Set( "permadeath_debug_died", va( "%i", died ) );
+	trap_Cvar_Set( "pd_haste", "0" );
 	if ( g_gametype.integer != GT_SINGLE_PLAYER ) return;
 	if ( !died ) {
 		/* update furthest-map reached for this difficulty track */
@@ -430,6 +505,8 @@ void PermaDeath_CheckRestart( gentity_t *ent ) {
 		ach_bit = 2;   /* RESTARTER */
 	trap_Cvar_Set( "pd_achievements", va( "%i",
 	    (int)trap_Cvar_VariableValue( "pd_achievements" ) | (1 << ach_bit) ) );
+	trap_Cvar_Set( "pd_extra_lives", "0" );
+	trap_Cvar_Set( "pd_completed_maps", "0" );
 	trap_Cvar_Set( "permadeath_gameOver", va( "%i", pd_restartType ) );
 	trap_Cvar_Set( "g_spScores1", "" );
 	trap_Cvar_Set( "g_spScores2", "" );

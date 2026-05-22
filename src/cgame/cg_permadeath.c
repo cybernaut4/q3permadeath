@@ -26,16 +26,16 @@ void CG_PermadeathGameOver_Activate( void ) {
     trap_SendConsoleCommand( "writeconfig q3config.cfg\ndisconnect\n" );
 }
 
-static qboolean pd_musicStopped;
-static qboolean pd_hudSuppressed;
+static qboolean    pd_hudSuppressed;
+static qboolean    pd_deathHandled;  /* qtrue after the first dead frame is processed */
+static int         pd_deathTime;
+static qboolean    pd_gongScheduled;
+static sfxHandle_t pd_gongSfx;
 
-/* Returns qtrue from the first frame the player dies in SP permadeath,
-   and stays qtrue until the DLL is unloaded (never resets mid-session). */
+/* Returns qtrue while the HUD should be hidden (died with no extra lives). */
 qboolean CG_PD_IsHudSuppressed( void ) {
     if ( cgs.gametype != GT_SINGLE_PLAYER ) return qfalse;
     if ( !cg.snap ) return qfalse;
-    if ( cg.snap->ps.pm_type == PM_DEAD )
-        pd_hudSuppressed = qtrue;
     return pd_hudSuppressed;
 }
 
@@ -62,20 +62,38 @@ void CG_PD_HealthWarningColor( int health, vec4_t out ) {
 }
 
 /* Called every render frame from CG_DrawActive.
-   Stops background music immediately when the player dies in SP permadeath,
-   so the music doesn't keep playing during the "press to confirm death" wait. */
+   On the first frame the player is dead:
+     - extra lives > 0: play gong 100ms later, leave HUD and music alone
+     - extra lives == 0: stop music and hide HUD immediately
+   Resets all state when the player is alive again (extra-life respawn). */
 void CG_DrawPermadeathGameOver( void ) {
     if ( cgs.gametype != GT_SINGLE_PLAYER ) return;
     if ( !cg.snap ) return;
-    {
-        char pdbuf[8];
-        trap_Cvar_VariableStringBuffer( "permadeath_died", pdbuf, sizeof(pdbuf) );
-        if ( cg.snap->ps.pm_type == PM_DEAD && atoi(pdbuf) && !pd_musicStopped ) {
-            trap_S_StopBackgroundTrack();
-            pd_musicStopped = qtrue;
+
+    if ( cg.snap->ps.pm_type == PM_DEAD ) {
+        if ( !pd_deathHandled ) {
+            char _lv[4];
+            int lives;
+            trap_Cvar_VariableStringBuffer( "pd_extra_lives", _lv, sizeof(_lv) );
+            lives = atoi( _lv );
+            pd_deathHandled = qtrue;
+            if ( lives > 0 ) {
+                pd_deathTime     = cg.time;
+                pd_gongScheduled = qtrue;
+            } else {
+                trap_S_StopBackgroundTrack();
+                pd_hudSuppressed = qtrue;
+            }
         }
-    }
-    if ( cg.snap->ps.pm_type != PM_DEAD ) {
-        pd_musicStopped = qfalse;
+        if ( pd_gongScheduled && cg.time - pd_deathTime >= 100 ) {
+            if ( !pd_gongSfx )
+                pd_gongSfx = trap_S_RegisterSound( "sound/world/1shot_gong.wav", qfalse );
+            trap_S_StartLocalSound( pd_gongSfx, CHAN_ANNOUNCER );
+            pd_gongScheduled = qfalse;
+        }
+    } else {
+        pd_deathHandled  = qfalse;
+        pd_gongScheduled = qfalse;
+        pd_hudSuppressed = qfalse;
     }
 }
