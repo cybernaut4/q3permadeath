@@ -121,6 +121,7 @@
     - [x] Inside Permadeath menu, put a text right below its title, use default monospace font, same red color and size as the bottom text in the main menu. Version must be written like so: "Version 0.5"
 
 ## Sixth iteration
+- [x] Change version to 0.6
 - [x] HUD behaviour change:
     - [x] Instead of making the health blink with red when low health, change it so that the red tint goes for a looping fade animation by using a formula for the red's opacity, like `mod($time, 1.0)` (it's a formula I use for Material Maker on the Opacity of a blend node (where 0.0 is the background color, 1.0 is the red color we're talking about), translate it for this scenario), and activate it only when health is 60 or under (instead of the current 25 or lower), and make it go faster the lower it gets (minimum animation speed `mod($time*0.5, 1.0)`, and maximum animation speed `mod($time*5, 1.0)`).
     - [x] Have the armor numbers go white if value is >100 (just like health).
@@ -165,16 +166,70 @@ For example: `run0013-skill3-q3dm3` (so, if this is my 13th run, it means I died
 - [x] Extra Lives system: if the player has no extra lives and dies, permanent death happens (aka game over screen, reset progress as usual). If the player has any extra lives, the player will have a life subtracted before respawning and a sound will be played (the hud will remain displayed and the music will keep going): `pak0.pk3/sound/world/1shot_gong.wav`. When the player starts the entire run, the player starts with zero extra lives. The player will get an extra life every time the player has beaten a tier. (eg. Tier 0 has one map, if player beats q3dm0, the player will have 1 extra life. If the player beats Tier 1's four maps, the player will get an extra life, so that the player will have 2 lives tops by the time the player reaches Tier 2. If the player beats Tier 2 maps without dying, the player will have 3 lives tops, and so on).
     - [x] Add a counter in the HUD at the right of the health count if there's more than zero extra lives. The number will be white. 
     - [x] New toggle: "True permadeath", if this is enabled, there's no extra lives system and it will work as before, you die once, the game is over.
-- [ ] Finish readme.md
-
+- [x] Change special game over condition for "EMBARRASING": the player dies by self-damage via weaponry. The condition of not hurting anyone else is no longer necessary.
+- [x] Separate everything that makes the changes to Krusade to its own .pk3 file (if there's something that is loaded from baseq3/pak0.pk3 THEN keep pointing to the files in there AND do not copy them into the standalone file)
+- [x] Investigate whether is there a way to seamlessly execute the mod without the need to add a thousand launch parameters to make it work. Otherwise, verify whether the changes are detected for the mod to run properly, or make a warning message to the user telling that the game did not run with the required parameters.
+- [x] Revise readme.md
 
 ## Seventh iteration
-- [ ] Investigate whether is there a way to seamlessly execute the mod without the need to add a thousand launch parameters to make it work. Otherwise, verify whether the changes are detected for the run to run properly, or make a warning message to the user telling that the game did not run with the required parameters.
-- [ ] Investigate whether the campaign progress isn't affected in the vanilla from the mod, or if there's a need to mirror the progress *for* this mod...
-- [ ] Rework Achievements screen with the following layout (similar to the final Skirmish screen) using this mockup I put together (bricolaged from screenshots): `/permadeath_src/Originals/Permadeath-screen-2.png`
-
+- [ ] Change version to 0.7
+- [ ] New special game over: If the player enables `/god` mode, instantly `/kill` the player: "FORSAKEN BY GOD"
+- [ ] New special game over: If the player enables `/noclip` mode, instantly `/kill` the player: "CLIPPED"
+- [ ] Set achievement tabs to categorize them: "Game Over", "Campaign".
+- [ ] Create a game options switch called "Use roster" that works as an enum that cycles between: "Vanilla", "Revised". Set "Revised" by default.
+    If "Revised" is selected, it adds Daemia in q3dm2 during the single player campaign.
+    If "Vanilla" is selected, Single Player campaign remains intact..
+- [ ] Add a date and time on which the achievement was unlocked. Format it as "YYYY-MM-DD hh:mm am/pm UTC+#" (eg. "2026-11-29 4:36am UTC+1", as in 29th, November 2026)
 
 ## Eighth iteration
+- [ ] Change version to 0.8
+- [ ] Rework Permadeath menu with the following layout (similar to the final Skirmish screen) using the mockup I put together: `/src/Originals/Permadeath-screen-2.png`
+
+## Nineth iteration
+- [ ] Change version to 0.9
+- [ ] If `dc_mappack.pk3` is detected, replace the campaign map with some maps from specific mappack and its enemies, according to the following table:
+| filename   | enemies                                                      | mapslot | tier | good?  | use other     | alternate       |
+| ---------- | ------------------------------------------------------------ | ------- | ---- | ------ | ------------- | --------------- |
+| q3dm0      | crash                                                        | 1       | 0    | yes    |               |                 |
+| q3dm1      | ranger                                                       | 1       | 1    | yes    | dc_map02      |                 |
+| q3dm2      | phobos                                                       | 2       | 1    | yes    |               |                 |
+| q3dm3      | mynx, orbb                                                   | 3       | 1    | yes    | dc_map05      |                 |
+| q3tourney1 | sarge                                                        | 4       | 1    | yes    | dc_map04      |                 |
+| q3dm4      | orbb, bitterman, grunt                                       | 1       | 2    | yes    | dc_map09      |                 |
+| q3dm5      | hossman, daemia                                              | 2       | 2    | yes    | dc_map10      |                 |
+| q3dm6      | orbb, hossman, daemia, bitterman, grunt                      | 3       | 2    | yes    | dc_map11      | campgroundsblue |
+|            | anarki, angel, biker                                         |         |      |        |               | spacecamp       |
+| q3tourney2 | hunter                                                       | 4       | 2    | yes    |               |                 |
+| q3dm7      | daemia, wrack, grunt, slash                                  | 1       | 3    | yes    |               |                 |
+| q3dm8      | gorre, bitterman, slash, angel                               | 2       | 3    | no     | dc_map06      |                 |
+| q3dm9      | angel, gorre, wrack, slash                                   | 3       | 3    | no     | dc_map07      |                 |
+| q3tourney4 | klesk                                                        | 4       | 3    | yes    |               |                 |
+| q3dm10     | angel, tankjr, wrack                                         | 1       | 4    | kinda  | namelessplace |                 |
+| q3dm11     | lucy, biker, patriot, tankjr                                 | 2       | 4    | yes    |               |                 |
+| q3dm12     | slash, gorre, lucy, biker, patriot, wrack                    | 3       | 4    | kinda  |               |                 |
+| q3tourney5 | anarki                                                       | 4       | 4    | yes    |               |                 |
+| q3dm13     | visor, razor, stripe                                         | 1       | 5    | yes    | dc_map14      |                 |
+| q3dm14     | visor, razor, keel, stripe                                   | 2       | 5    | kinda  |               |                 |
+| q3dm15     | razor, keel, stripe                                          | 3       | 5    | no     |               |                 |
+| q3tourney6 | uriel                                                        | 4       | 5    | yes    |               |                 |
+| q3dm16     | cadavre, bones, doom                                         | 1       | 6    | kinda  | dc_map18      |                 |
+| q3dm17     | major, sorlag, doom                                          | 2       | 6    | yes    | dc_map19      |                 |
+| q3dm18     | major, sorlag, cadavre, bones, keel                          | 3       | 6    | no     | spacechamber  |                 |
+| q3dm19     | sorlag, doom, cadavre                                        | 4       | 6    | no     | terminatria   |                 |
+| q3tourney7 | xaero                                                        | 1       | 7    | kinda  |               |                 |
+|            | bitterman, crash, daemia, gorre, grunt, hossman, klesk, lucy | 1       | 8    | yes    | superspace    |                 |
+|            | biker, hunter, patriot, mynx                                 | 2       | 8    | yes    | focalpoint    |                 |
+
+
+| filename | enemies        | mapslot | tier |
+| -------- | -------------- | ------- | ---- |
+| dc_map02 | ranger         | 01      | 1    |
+| dc_map03 | phobos, hunter | 02      | 1    |
+| dc_map04 | sarge          | 03      | 1    |
+| dc_map20 | wrack, grunt   | 03      | 3    |
+
+
+## Backlog
 - [ ] Special game over screen occurs after changing the fraglimit via console, then winning the last match of the campaign: 
     1. A fake 'victory sequence' (it's probably called the intermission) begins, where the winner is teleported first place and executes the taunt.
     2. When the taunt begins, the player explodes after 1 second (an automatic `/kill` occurs) during the victory/defeat screen and the win.wav music stops playing immediately. Three seconds after, disconnect automatically and show the Game Over Screen with a different message:

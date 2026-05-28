@@ -1,0 +1,78 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          path: permadeath
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Set up MSYS2 + MinGW-w64
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+
+      - name: Determine Q3A root and run build script
+        shell: pwsh
+        run: |
+          # The workflow checks out into permadeath/ under the workspace root.
+          # build_permadeath.ps1 expects to be run from inside the mod directory
+          # and uses Split-Path to locate the Q3A root one level up.
+          # We replicate that layout here:
+          #   $GITHUB_WORKSPACE\permadeath\  <- mod dir (checked out here)
+          #   $GITHUB_WORKSPACE\            <- fake Q3A root (split-path parent)
+          Set-Location "$env:GITHUB_WORKSPACE\permadeath"
+          & ".\build_permadeath.ps1"
+
+      - name: Locate release zip
+        id: find_zip
+        shell: pwsh
+        run: |
+          $tag     = "$env:GITHUB_REF_NAME"           # e.g. v0.7
+          $version = $tag -replace '^v', ''
+          $zipName = "permadeath-v$version-release.zip"
+          $zipPath = "$env:GITHUB_WORKSPACE\permadeath\$zipName"
+          if (-not (Test-Path $zipPath)) {
+              Write-Error "Release zip not found: $zipPath"
+              exit 1
+          }
+          echo "zip_path=$zipPath" >> $env:GITHUB_OUTPUT
+          echo "zip_name=$zipName" >> $env:GITHUB_OUTPUT
+
+      - name: Create GitHub Release and upload zip
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.find_zip.outputs.zip_path }}
+          name: Permadeath ${{ github.ref_name }}
+          body: |
+            ## Quake III: Permadeath ${{ github.ref_name }}
+
+            See [README](https://github.com/${{ github.repository }}/blob/main/README.md) for features and full details.
+
+            ### Installation
+            1. Download `${{ steps.find_zip.outputs.zip_name }}` below.
+            2. Extract into your Quake III Arena directory (`permadeath/` alongside `baseq3/`).
+            3. Launch via **Mods → Permadeath**, or add to your shortcut:
+               ```
+               +set fs_game permadeath +set vm_cgame 0 +set vm_game 0 +set vm_ui 0 +set sv_pure 0
+               ```
+          draft: false
+          prerelease: false

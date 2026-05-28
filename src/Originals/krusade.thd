@@ -1,0 +1,149 @@
+{
+	"connections": [
+		{
+			"from_node_id": 2,
+			"from_port": 0,
+			"to_node_id": 1,
+			"to_port": 0
+		},
+		{
+			"from_node_id": 1,
+			"from_port": 0,
+			"to_node_id": 3,
+			"to_port": 0
+		}
+	],
+	"fftoverlap": 2,
+	"fftsize": 9,
+	"nodes": [
+		{
+			"addremoveinlets": {
+
+			},
+			"checkbutton_states": {
+
+			},
+			"command": "newdelay_newdelay",
+			"id": 1,
+			"name": "newdelay_newdelay",
+			"notes": {
+
+			},
+			"offset": {
+				"x": 2562.66088867188,
+				"y": 189.822830200195
+			},
+			"optionbutton_values": {
+
+			},
+			"slider_values": {
+				"Dry_Wet/HSplitContainer/HSlider": {
+					"editable": true,
+					"meta": {
+						"brk": false,
+						"default_value": 1.0,
+						"fftwindowcount": false,
+						"fftwindowsize": false,
+						"flag": "",
+						"max": false,
+						"min": false,
+						"time": false
+					},
+					"value": 1.0
+				},
+				"Feedback/HSplitContainer/HSlider": {
+					"editable": true,
+					"meta": {
+						"brk": false,
+						"default_value": 0.7,
+						"fftwindowcount": false,
+						"fftwindowsize": false,
+						"flag": "",
+						"max": false,
+						"min": false,
+						"time": false
+					},
+					"value": 0.53
+				},
+				"MIDIPitch/HSplitContainer/HSlider": {
+					"editable": true,
+					"meta": {
+						"brk": true,
+						"default_value": 60.0,
+						"fftwindowcount": false,
+						"fftwindowsize": false,
+						"flag": "",
+						"max": false,
+						"min": false,
+						"time": false
+					},
+					"value": 25.19
+				}
+			}
+		},
+		{
+			"addremoveinlets": {
+
+			},
+			"checkbutton_states": {
+
+			},
+			"command": "inputfile",
+			"id": 2,
+			"name": "inputfile",
+			"notes": {
+
+			},
+			"offset": {
+				"x": 1992.21069335938,
+				"y": 41.1111068725586
+			},
+			"optionbutton_values": {
+				"@OptionButton@1837": 0,
+				"@OptionButton@1878": 0
+			},
+			"slider_values": {
+				"AudioPlayer/FileDialog/@VBoxContainer@1825/@MarginContainer@1865/Tree/@Popup@1851/@VBoxContainer@1852/@HSlider@1860": {
+					"editable": true,
+					"meta": {
+
+					},
+					"value": 0.0
+				}
+			}
+		},
+		{
+			"addremoveinlets": {
+
+			},
+			"checkbutton_states": {
+				"Autoplay": true,
+				"DeleteIntermediateFilesToggle": true,
+				"ReuseFolderToggle": true
+			},
+			"command": "outputfile",
+			"id": 3,
+			"name": "outputfile",
+			"notes": {
+
+			},
+			"offset": {
+				"x": 2960.0,
+				"y": 80.0
+			},
+			"optionbutton_values": {
+				"@OptionButton@1945": 0,
+				"@OptionButton@1986": 0
+			},
+			"slider_values": {
+				"AudioPlayer/FileDialog/@VBoxContainer@1933/@MarginContainer@1973/Tree/@Popup@1959/@VBoxContainer@1960/@HSlider@1968": {
+					"editable": true,
+					"meta": {
+
+					},
+					"value": 0.0
+				}
+			}
+		}
+	]
+}

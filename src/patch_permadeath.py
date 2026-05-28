@@ -66,7 +66,7 @@ def run(ioq3, PD_VERSION='dev'):
         patch_re(f,
                  r'(void\s+ClientRespawn\s*\(\s*gentity_t\s*\*\s*ent\s*\)\s*;)',
                  ('\\1\n'
-                  'void PermaDeath_PlayerDied( gentity_t *ent, int meansOfDeath );\n'
+                  'void PermaDeath_PlayerDied( gentity_t *ent, gentity_t *attacker, int meansOfDeath );\n'
                   'void PermaDeath_GameOver( gentity_t *ent );\n'
                   'void PermaDeath_InitGame( void );\n'
                   'void PermaDeath_CheckRestart( gentity_t *ent );\n'
@@ -85,7 +85,7 @@ def run(ioq3, PD_VERSION='dev'):
         patch_literal(f,
                       '\tself->client->ps.pm_type = PM_DEAD;\n\n\tif ( attacker ) {',
                       ('\tself->client->ps.pm_type = PM_DEAD;\n'
-                       '\tPermaDeath_PlayerDied( self, meansOfDeath );\n\n'
+                       '\tPermaDeath_PlayerDied( self, attacker, meansOfDeath );\n\n'
                        '\tif ( attacker ) {'),
                       'g_combat.c: call PermaDeath_PlayerDied on death')
 
@@ -332,6 +332,25 @@ def run(ioq3, PD_VERSION='dev'):
                  r'(qboolean\s+CG_PD_IsHudSuppressed\s*\(\s*void\s*\)\s*;)',
                  '\\1\nvoid CG_PD_HealthWarningColor( int health, vec4_t out );',
                  'cg_local.h: declare CG_PD_HealthWarningColor')
+
+    # -------------------------------------------------------------------------
+    # cg_players.c: redirect sound loading for the krusade skin so it uses
+    # sound/player/krusade/ instead of sound/player/sarge/.
+    # -------------------------------------------------------------------------
+    f = p('code/cgame/cg_players.c')
+    if already(f, 'pd_krusade_sounds'):
+        print('  [SKIP] cg_players.c (krusade sounds) already patched')
+    else:
+        patch_literal(f,
+                      '\t// sounds\n'
+                      '\tdir = ci->modelName;\n'
+                      '\tfallback = (cgs.gametype >= GT_TEAM) ? DEFAULT_TEAM_MODEL : DEFAULT_MODEL;',
+                      ('\t// sounds\n'
+                       '\tdir = ci->modelName;\n'
+                       '\t/* pd_krusade_sounds */\n'
+                       '\tif ( Q_stricmp( ci->skinName, "krusade" ) == 0 ) dir = "krusade";\n'
+                       '\tfallback = (cgs.gametype >= GT_TEAM) ? DEFAULT_TEAM_MODEL : DEFAULT_MODEL;'),
+                      'cg_players.c: krusade skin uses sound/player/krusade/')
 
     # -------------------------------------------------------------------------
     # cg_draw.c: replace the health-number color block.
@@ -1129,7 +1148,7 @@ def run(ioq3, PD_VERSION='dev'):
     # =========================================================================
 
     # -------------------------------------------------------------------------
-    # ui_main.c: register pd_autorecord as CVAR_ARCHIVE, default on.
+    # ui_main.c: register pd_autorecord as CVAR_ARCHIVE, default off.
     # -------------------------------------------------------------------------
     f = p('code/q3_ui/ui_main.c')
     if already(f, 'pd_autorecord'):
@@ -1138,8 +1157,8 @@ def run(ioq3, PD_VERSION='dev'):
         patch_literal(f,
                       '\t{ NULL, "pd_haste_earned", "0", CVAR_ARCHIVE },',
                       ('\t{ NULL, "pd_haste_earned", "0", CVAR_ARCHIVE },\n'
-                       '\t{ NULL, "pd_autorecord", "1", CVAR_ARCHIVE },'),
-                      'ui_main.c: register pd_autorecord as CVAR_ARCHIVE (default on)')
+                       '\t{ NULL, "pd_autorecord", "0", CVAR_ARCHIVE },'),
+                      'ui_main.c: register pd_autorecord as CVAR_ARCHIVE (default off)')
 
     # -------------------------------------------------------------------------
     # ui_preferences.c: add Auto Record toggle to Game Options.
@@ -1312,8 +1331,8 @@ def run(ioq3, PD_VERSION='dev'):
         print('  [SKIP] ui_main.c (pd_extra_lives) already patched')
     else:
         patch_literal(f,
-                      '\t{ NULL, "pd_autorecord", "1", CVAR_ARCHIVE },',
-                      ('\t{ NULL, "pd_autorecord", "1", CVAR_ARCHIVE },\n'
+                      '\t{ NULL, "pd_autorecord", "0", CVAR_ARCHIVE },',
+                      ('\t{ NULL, "pd_autorecord", "0", CVAR_ARCHIVE },\n'
                        '\t{ NULL, "pd_extra_lives", "0", CVAR_ARCHIVE },\n'
                        '\t{ NULL, "pd_true_permadeath", "0", CVAR_ARCHIVE },\n'
                        '\t{ NULL, "pd_completed_maps", "0", CVAR_ARCHIVE },'),

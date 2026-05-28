@@ -8,6 +8,11 @@ $ErrorActionPreference = 'Stop'
 
 $VERSION  = "0.6"
 
+# When run by GitHub Actions on a version tag (e.g. v0.7), use the tag as the version.
+if ($env:GITHUB_REF_NAME -and $env:GITHUB_REF_NAME -match '^v(.+)$') {
+    $VERSION = $Matches[1]
+}
+
 $MODDIR   = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Q3DIR    = Split-Path -Parent $MODDIR
 $SRCDIR   = "$MODDIR\src"
@@ -27,7 +32,11 @@ function ToMsys2Path([string]$winPath) {
     return "/$drive$rest"
 }
 
-trap { Write-Host "[BUILD] FATAL: $_" -ForegroundColor Red; Read-Host "Press Enter to close"; break }
+trap {
+    Write-Host "[BUILD] FATAL: $_" -ForegroundColor Red
+    if (-not $env:CI) { Read-Host "Press Enter to close" }
+    break
+}
 
 Info "Permadeath v$VERSION - starting build..."
 
@@ -77,12 +86,26 @@ OK "Python: $PYTHON"
 # ---------------------------------------------------------------------------
 if (-not (Test-Path $TMPDIR)) { New-Item -ItemType Directory $TMPDIR | Out-Null }
 
-if (Test-Path "$IOQ3DIR\.git") {
+$validRepo = $false
+if (Test-Path $IOQ3DIR) {
+    $prevEA = $ErrorActionPreference
+    $ErrorActionPreference = 'SilentlyContinue'
+    $null = & git -C $IOQ3DIR rev-parse --git-dir
+    if ($LASTEXITCODE -eq 0) { $validRepo = $true }
+    $ErrorActionPreference = $prevEA
+}
+
+if ($validRepo) {
     Info "ioquake3 already cloned - resetting to latest HEAD..."
     & git -C $IOQ3DIR fetch --depth=1 origin HEAD
+    if ($LASTEXITCODE -ne 0) { Fail "git fetch failed." }
     & git -C $IOQ3DIR reset --hard FETCH_HEAD
     if ($LASTEXITCODE -ne 0) { Fail "git reset failed." }
 } else {
+    if (Test-Path $IOQ3DIR) {
+        Info "Removing incomplete/corrupt ioq3 directory..."
+        Remove-Item $IOQ3DIR -Recurse -Force
+    }
     Info "Cloning ioquake3 (depth 1, ~60 MB)..."
     & git clone --depth=1 https://github.com/ioquake/ioq3 $IOQ3DIR
     if ($LASTEXITCODE -ne 0) { Fail "git clone failed." }
@@ -178,9 +201,17 @@ foreach ($dll in $dlls) {
 #    ioquake3 only lists a mod directory if it contains at least one .pk3 file.
 #    The pk3 also carries all custom TGA assets (achievement icons etc.).
 # ---------------------------------------------------------------------------
-Info "Creating description.txt and permadeath.pk3..."
+Info "Creating description.txt, autoexec.cfg and permadeath.pk3..."
 $descFile = "$MODDIR\description.txt"
 [System.IO.File]::WriteAllText($descFile, "Permadeath", (New-Object System.Text.UTF8Encoding $false))
+
+$autoexecSrc = "$SRCDIR\autoexec.cfg"
+if (Test-Path $autoexecSrc) {
+    Copy-Item $autoexecSrc "$MODDIR\autoexec.cfg" -Force
+    OK "Deployed autoexec.cfg"
+} else {
+    Info "No autoexec.cfg found at $autoexecSrc, skipping."
+}
 
 $pk3Path = "$MODDIR\permadeath.pk3"
 if (Test-Path $pk3Path) { Remove-Item $pk3Path -Force }
@@ -216,6 +247,97 @@ $zip.Dispose()
 OK "permadeath.pk3 created."
 
 # ---------------------------------------------------------------------------
+# 9. Create krusade.pk3
+#    Contains only new Krusade-specific assets: custom sounds, bot AI files,
+#    and the two override scripts (bots.txt / arenas.txt).
+#    Model skin files (.skin, .tga, .md3) already exist in baseq3/pak0.pk3
+#    and are deliberately NOT copied here.
+# ---------------------------------------------------------------------------
+Info "Creating krusade.pk3..."
+$krusadePk3 = "$MODDIR\krusade.pk3"
+if (Test-Path $krusadePk3) { Remove-Item $krusadePk3 -Force }
+
+$kzip = [System.IO.Compression.ZipFile]::Open($krusadePk3,
+    [System.IO.Compression.ZipArchiveMode]::Create)
+
+$krusadeSndSrc = "$SRCDIR\sound\player\krusade"
+if (Test-Path $krusadeSndSrc) {
+    foreach ($wav in (Get-ChildItem "$krusadeSndSrc\*.wav")) {
+        [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+            $kzip, $wav.FullName, "sound/player/krusade/$($wav.Name)") | Out-Null
+        OK "  Packed $($wav.Name)"
+    }
+} else {
+    Info "No krusade sounds found at $krusadeSndSrc, skipping."
+}
+
+$botSrc = "$SRCDIR\botfiles\bots"
+if (Test-Path $botSrc) {
+    foreach ($f in (Get-ChildItem "$botSrc\krusade_*.c")) {
+        [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+            $kzip, $f.FullName, "botfiles/bots/$($f.Name)") | Out-Null
+        OK "  Packed $($f.Name)"
+    }
+} else {
+    Info "No bot files found at $botSrc, skipping."
+}
+
+$botsTxt = "$SRCDIR\scripts\bots.txt"
+if (Test-Path $botsTxt) {
+    [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+        $kzip, $botsTxt, "scripts/bots.txt") | Out-Null
+    OK "  Packed bots.txt"
+} else {
+    Info "No scripts/bots.txt found, skipping."
+}
+
+
+$kzip.Dispose()
+OK "krusade.pk3 created."
+
+# ---------------------------------------------------------------------------
+# 10. Package release zip (permadeath-vX.Y-release.zip)
+#     Layout:
+#       permadeath/          <- drop this folder into your Q3A directory
+#         cgamex86_64.dll
+#         qagamex86_64.dll
+#         uix86_64.dll
+#         permadeath.pk3
+#         krusade.pk3
+#         description.txt
+#         autoexec.cfg       (if present)
+# ---------------------------------------------------------------------------
+Info "Packaging release zip..."
+$zipName    = "permadeath-v$VERSION-release.zip"
+$releaseZip = "$MODDIR\$zipName"
+if (Test-Path $releaseZip) { Remove-Item $releaseZip -Force }
+
+Add-Type -Assembly System.IO.Compression
+Add-Type -Assembly System.IO.Compression.FileSystem
+
+$rzip = [System.IO.Compression.ZipFile]::Open($releaseZip,
+    [System.IO.Compression.ZipArchiveMode]::Create)
+
+# Helper: add a file at a given archive path
+function ZipAdd($archive, [string]$srcPath, [string]$entryName) {
+    if (Test-Path $srcPath) {
+        [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+            $archive, $srcPath, $entryName) | Out-Null
+    }
+}
+
+foreach ($dll in $dlls) {
+    ZipAdd $rzip "$MODDIR\$dll" "permadeath/$dll"
+}
+ZipAdd $rzip "$MODDIR\permadeath.pk3"  "permadeath/permadeath.pk3"
+ZipAdd $rzip "$MODDIR\krusade.pk3"     "permadeath/krusade.pk3"
+ZipAdd $rzip "$MODDIR\description.txt" "permadeath/description.txt"
+ZipAdd $rzip "$MODDIR\autoexec.cfg"    "permadeath/autoexec.cfg"
+
+$rzip.Dispose()
+OK "Release zip: $zipName"
+
+# ---------------------------------------------------------------------------
 # Done
 # ---------------------------------------------------------------------------
 Write-Host ""
@@ -232,4 +354,4 @@ Write-Host "  vm_* 0   = load native DLLs instead of QVM bytecode." -ForegroundC
 Write-Host "  sv_pure 0 = allow DLLs on client-side (pure server forces cgame to QVM)." -ForegroundColor DarkGray
 Write-Host ""
 
-pause
+if (-not $env:CI) { pause }

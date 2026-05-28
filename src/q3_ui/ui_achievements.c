@@ -20,14 +20,14 @@
 #define ACH_TIER        21
 #define ACH_TOTAL       (ACH_GAMEOVER + ACH_TIER)
 
-#define ACH_COLS        6
+#define ACH_COLS        8
 #define ACH_ROWS        5
 #define ACH_ICON_SIZE   40
-#define ACH_PER_PAGE    (ACH_COLS * ACH_ROWS)  /* 30 achievements per page */
+#define ACH_PER_PAGE    (ACH_COLS * ACH_ROWS)  /* 40 achievements per page */
 
-/* 6 equal-width columns across 640px */
-#define ACH_COL_STEP    106
-#define ACH_COL_OFF     33      /* (106 - 40) / 2, centered in column */
+/* 8 equal-width columns across 640px */
+#define ACH_COL_STEP    80
+#define ACH_COL_OFF     20      /* (80 - 40) / 2, centered in column */
 #define ACH_ROW_STEP    58      /* tighter rows to leave room below the banner */
 #define ACH_GRID_Y      72      /* pushed down to clear the ACHIEVEMENTS banner */
 
@@ -178,6 +178,61 @@ static const char *s_achNames[ACH_TOTAL] = {
     "NIGHTMARE!",
 };
 
+static const char *s_achDescriptions[ACH_TOTAL] = {
+    /* slots 0-14: game-over types 1-15 */
+    "Get killed by an enemy during a run.",
+    "Use Restart Arena in-game after dying.",
+    "Restart the map via console after dying.",
+    "Type 'kill' in the console during a run.",
+    "Get telefragged by an enemy.",
+    "Fall to your death.",
+    "Die in a void or damage trigger zone.",
+    "Kill yourself with your own splash damage.",
+    "Die by touching lava.",
+    "Die by touching slime.",
+    "Drown in water.",
+    "Be crushed by a moving object.",
+    "Die while running on empty ammo.",
+    "Die within 10s of using a Personal Teleporter.",
+    "Find the q3dm11 secret and die within 20s.",
+    /* slot 15: type 16 OMAE WA MOU */
+    "Leave the arena after dying.",
+    /* slot 16: type 17 REDIRECTED */
+    "Get blasted from a jump pad into a void zone.",
+    /* slot 17: type 18 DENIED */
+    "Earn the Denied award, then die within 8s.",
+    /* slot 18: type 19 RUINED */
+    "Die while your projectile wins the match.",
+    /* slot 19: Imperfect */
+    "Lose a match without dying once.",
+    /* slot 20: Near death */
+    "Win a match with 25 or fewer HP remaining.",
+    /* slots 21-27: skill123 tiers 1-7 */
+    "Clear all Tier 1 maps on skill 1, 2, or 3.",
+    "Clear all Tier 2 maps on skill 1, 2, or 3.",
+    "Clear all Tier 3 maps on skill 1, 2, or 3.",
+    "Clear all Tier 4 maps on skill 1, 2, or 3.",
+    "Clear all Tier 5 maps on skill 1, 2, or 3.",
+    "Clear all Tier 6 maps on skill 1, 2, or 3.",
+    "Clear all Tier 7 maps on skill 1, 2, or 3.",
+    /* slots 28-34: skill4 tiers 1-7 */
+    "Clear all Tier 1 maps on skill 4.",
+    "Clear all Tier 2 maps on skill 4.",
+    "Clear all Tier 3 maps on skill 4.",
+    "Clear all Tier 4 maps on skill 4.",
+    "Clear all Tier 5 maps on skill 4.",
+    "Clear all Tier 6 maps on skill 4.",
+    "Clear all Tier 7 maps on skill 4.",
+    /* slots 35-41: skill5 tiers 1-7 */
+    "Clear all Tier 1 maps on skill 5.",
+    "Clear all Tier 2 maps on skill 5.",
+    "Clear all Tier 3 maps on skill 5.",
+    "Clear all Tier 4 maps on skill 5.",
+    "Clear all Tier 5 maps on skill 5.",
+    "Clear all Tier 6 maps on skill 5.",
+    "Clear all Tier 7 maps on skill 5.",
+};
+
 /* idx is the page-local slot (0 to ACH_PER_PAGE-1) */
 static void ACH_CellPos( int idx, int *x, int *y ) {
     *x = (idx % ACH_COLS) * ACH_COL_STEP + ACH_COL_OFF;
@@ -258,8 +313,9 @@ static sfxHandle_t ACH_Key( int key ) {
 }
 
 static void ACH_Draw( void ) {
-    static vec4_t black = { 0.0f, 0.0f, 0.0f, 1.0f };
-    static vec4_t white = { 1.0f, 1.0f, 1.0f, 1.0f };
+    static vec4_t black  = { 0.0f, 0.0f, 0.0f, 1.0f };
+    static vec4_t white  = { 1.0f, 1.0f, 1.0f, 1.0f };
+    static vec4_t orange = { 1.0f, 0.5f, 0.0f, 1.0f };
     int i, x, y, ach_idx, is_unlocked;
     int page_start = s_ach.page * ACH_PER_PAGE;
     int go_eff, tier_eff;
@@ -324,6 +380,9 @@ static void ACH_Draw( void ) {
             UI_DrawProportionalString( SCREEN_WIDTH / 2, ACH_LABEL_Y,
                                        s_achNames[s_ach.hoverIdx],
                                        UI_CENTER | UI_SMALLFONT | UI_DROPSHADOW, white );
+            UI_DrawString( SCREEN_WIDTH / 2, ACH_LABEL_Y + 20,
+                           s_achDescriptions[s_ach.hoverIdx],
+                           UI_CENTER | UI_SMALLFONT, orange );
         }
     }
 

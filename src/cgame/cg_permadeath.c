@@ -31,6 +31,7 @@ static qboolean    pd_deathHandled;  /* qtrue after the first dead frame is proc
 static int         pd_deathTime;
 static qboolean    pd_gongScheduled;
 static sfxHandle_t pd_gongSfx;
+static int         pd_savedLives = -1; /* last seen pd_extra_lives; -1 = not yet initialized */
 
 /* Returns qtrue while the HUD should be hidden (died with no extra lives). */
 qboolean CG_PD_IsHudSuppressed( void ) {
@@ -69,6 +70,16 @@ void CG_PD_HealthWarningColor( int health, vec4_t out ) {
 void CG_DrawPermadeathGameOver( void ) {
     if ( cgs.gametype != GT_SINGLE_PLAYER ) return;
     if ( !cg.snap ) return;
+
+    {
+        char _lv2[4];
+        int lives2;
+        trap_Cvar_VariableStringBuffer( "pd_extra_lives", _lv2, sizeof(_lv2) );
+        lives2 = atoi( _lv2 );
+        if ( pd_savedLives >= 0 && lives2 != pd_savedLives )
+            trap_SendConsoleCommand( "writeconfig q3config.cfg\n" );
+        pd_savedLives = lives2;
+    }
 
     if ( cg.snap->ps.pm_type == PM_DEAD ) {
         if ( !pd_deathHandled ) {

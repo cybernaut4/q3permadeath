@@ -16,6 +16,7 @@ static qboolean pd_hitAfterJumppad;    /* received weapon damage while airborne 
 static int      pd_deniedTime;         /* level.time when EF_AWARD_DENIED flag was first detected */
 static int      pd_prevEFlags;         /* ent->client->ps.eFlags from previous ClientThink frame */
 static qboolean pd_wasAirborne;        /* player has been airborne since last jumppad use */
+static qboolean pd_selfSplash;         /* player killed themselves with their own splash damage */
 
 /* -----------------------------------------------------------------------
    Fifth iteration: per-track campaign statistics.
@@ -357,11 +358,12 @@ void PermaDeath_TrackDamage( gentity_t *attacker ) {
 	pd_dealtDamage = qtrue;
 }
 
-void PermaDeath_PlayerDied( gentity_t *ent, int meansOfDeath ) {
+void PermaDeath_PlayerDied( gentity_t *ent, gentity_t *attacker, int meansOfDeath ) {
 	int clientNum = ent - g_entities;
 	if ( g_gametype.integer != GT_SINGLE_PLAYER ) return;
 	if ( ent->r.svFlags & SVF_BOT ) return;
 	pd_playerMOD     = meansOfDeath;
+	pd_selfSplash    = ( attacker == ent ) && PD_IsSplashMOD( meansOfDeath );
 	pd_noAmmoAtDeath = ( pd_weaponEmptyTime > 0 &&
 	                     level.time - pd_weaponEmptyTime <= 2000 );
 	if ( pd_teleporterUsedTime > 0 &&
@@ -395,7 +397,7 @@ void PermaDeath_GameOver( gentity_t *ent ) {
 
 	if ( pd_teleporterUsedTime == -1 ) {
 		type = 14;
-	} else if ( !pd_dealtDamage && PD_IsSplashMOD( pd_playerMOD ) ) {
+	} else if ( pd_selfSplash ) {
 		type = 8;
 	} else if ( pd_secretFoundTime == -1 ) {
 		type = 15;
